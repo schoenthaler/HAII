@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>HAII - Speech Coding Assistant</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero">
+        <p class="eyebrow">HAII</p>
+        <h1>Speak to a coding assistant that helps you think.</h1>
+        <p class="lede">
+          Press record, say what you are working on, and get back a spoken response that nudges your reasoning instead of dumping answers.
+        </p>
+      </section>
+
+      <section class="panel">
+        <div class="controls">
+          <button id="recordButton" class="primary" type="button">Start listening</button>
+          <button id="clearButton" class="secondary" type="button">Clear</button>
+        </div>
+
+        <div class="status-row">
+          <span id="statusBadge" class="badge idle">Idle</span>
+          <span id="supportNote" class="support-note">Speech recognition works best in Chrome or Edge.</span>
+        </div>
+
+        <label class="field">
+          <span>Your speech transcript</span>
+          <textarea id="transcript" rows="5" placeholder="Your words will appear here..."></textarea>
+        </label>
+
+        <div class="chat-output" aria-live="polite">
+          <h2>Assistant response</h2>
+          <p id="assistantReply" class="assistant-reply">The response will appear here and be spoken aloud.</p>
+        </div>
+      </section>
+    </main>
+
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>
