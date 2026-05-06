@@ -17,7 +17,9 @@ interface AITeachingPanelProps {
   isVoiceActive: boolean;  // true only while voice is actually being heard
   isSpeaking: boolean;
   isThinking: boolean;
+  isRecording: boolean;     // real speech recognition is active
   onToggleListening: () => void;
+  onToggleRecording: () => void;
   onSendMessage?: (message: string) => void;
   onLineClick?: (lineNumber: number) => void;
 }
@@ -28,13 +30,14 @@ export function AITeachingPanel({
   isVoiceActive,
   isSpeaking,
   isThinking,
+  isRecording,
   onToggleListening,
+  onToggleRecording,
   onSendMessage,
   onLineClick,
 }: AITeachingPanelProps) {
   const [inputText, setInputText] = useState('');
   const [isInputFocused, setIsInputFocused] = useState(false);
-  const [isRecording, setIsRecording] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
 
@@ -101,7 +104,7 @@ export function AITeachingPanel({
           <div className="flex items-center gap-2">
             {/* Record button */}
             <motion.button
-              onClick={() => setIsRecording((r) => !r)}
+              onClick={onToggleRecording}
               whileHover={{ scale: 1.07 }}
               whileTap={{ scale: 0.92 }}
               title={isRecording ? 'Stop recording' : 'Start recording'}

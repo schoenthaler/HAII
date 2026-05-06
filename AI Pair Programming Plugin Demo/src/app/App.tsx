@@ -1,8 +1,9 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { motion } from 'motion/react';
 import { CodeEditor, CodeLine } from './components/CodeEditor';
 import { AITeachingPanel } from './components/AITeachingPanel';
 import { Code2, Sparkles } from 'lucide-react';
+import { useSpeech } from './hooks/useSpeech';
 
 interface Message {
   type: 'ai' | 'user';
@@ -105,11 +106,11 @@ function now() {
 // ─── App ──────────────────────────────────────────────────────────────────────
 
 export default function App() {
-  const [isListening, setIsListening] = useState(true);  // button always ON
-  const [isSpeaking, setIsSpeaking]   = useState(false);
+  const [isListening, setIsListening] = useState(true);
   const [isThinking, setIsThinking]   = useState(false);
   const [isTyping, setIsTyping]       = useState(true);
-  const [isVoiceActive, setIsVoiceActive] = useState(false); // true only while voice is being heard
+  // demoVoiceActive drives the wave during the scripted demo sequence
+  const [demoVoiceActive, setDemoVoiceActive] = useState(false);
   const [highlightedLine, setHighlightedLine] = useState<number | null>(null);
 
   // Auto-clear the highlight after 3.5 s
@@ -132,56 +133,82 @@ export default function App() {
     setMessages((m) => [...m, { type: 'ai', content, timestamp: now(), badge, lineNumbers }]);
   }
 
+  // ── Real API call ─────────────────────────────────────────────────────────────
+  // speakRef lets handleSendMessage always call the latest speak() without
+  // creating a circular dependency with the useSpeech hook.
+  const speakRef = useRef<(text: string) => void>(() => {});
+
+  const handleSendMessage = useCallback(async (message: string) => {
+    setMessages((m) => [...m, { type: 'user', content: message, timestamp: now() }]);
+    setIsThinking(true);
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: message }),
+      });
+      const data = await res.json() as { reply?: string; error?: string };
+      if (!res.ok) throw new Error(data?.error ?? 'Request failed.');
+      const reply = data.reply ?? '';
+      addAI(reply);
+      speakRef.current(reply);
+    } catch (err) {
+      addAI(err instanceof Error ? err.message : String(err));
+    } finally {
+      setIsThinking(false);
+    }
+  }, []);
+
+  // ── Speech hook ───────────────────────────────────────────────────────────────
+  const {
+    isRecording,
+    isSpeaking,
+    isVoiceActive: isMicActive,
+    toggleRecording,
+    speak,
+  } = useSpeech({ onTranscript: handleSendMessage });
+
+  // Keep speakRef current so handleSendMessage can always reach speak()
+  useEffect(() => { speakRef.current = speak; }, [speak]);
+
+  // Combine real mic activity with the scripted demo wave
+  const isVoiceActive = isMicActive || demoVoiceActive;
+
   // ── Line-complete callback from CodeEditor ────────────────────────────────
   const handleLineComplete = useCallback((lineIdx: number) => {
-    // Simulate AI "speaking" briefly as it processes each completed line
-    setIsSpeaking(true);
-    setTimeout(() => setIsSpeaking(false), 1100);
-
-    // Teaching messages keyed by line index (0-based array index)
+    // Teaching messages keyed by 0-based line index
     const triggers: Record<number, () => void> = {
-      0: () => setTimeout(() => addAI('We start with `def` — Python\'s keyword for defining a function. The name `find_duplicates` describes exactly what it does. Always name functions by what they return or do.', 'teach', [1]), 500),
-      1: () => setTimeout(() => addAI('⚡ Optimization spotted: using a plain list for `result` means every `in` check scans the whole list — that\'s O(n) per check. A `set()` would cut that to O(1).', 'optimize', [2]), 500),
-      2: () => setTimeout(() => addAI('⚡ Another tip: `for i in range(len(nums))` is C-style thinking in Python. The Pythonic way is `for num in nums` — cleaner and marginally faster.', 'optimize', [3]), 500),
-      3: () => setTimeout(() => addAI('🐛 ERROR detected! The inner loop starts `j` at 0 — the same index as `i`. That means when `i == j`, we\'re comparing an element with itself, which always matches!', 'error', [4]), 500),
+      0: () => setTimeout(() => { const t = "We start with `def` — Python's keyword for defining a function. The name `find_duplicates` describes exactly what it does. Always name functions by what they return or do."; addAI(t, 'teach', [1]); speak(t); }, 500),
+      1: () => setTimeout(() => { const t = "⚡ Optimization spotted: using a plain list for `result` means every `in` check scans the whole list — that's O(n) per check. A `set()` would cut that to O(1)."; addAI(t, 'optimize', [2]); speak(t); }, 500),
+      2: () => setTimeout(() => { const t = "⚡ Another tip: `for i in range(len(nums))` is C-style thinking in Python. The Pythonic way is `for num in nums` — cleaner and marginally faster."; addAI(t, 'optimize', [3]); speak(t); }, 500),
+      3: () => setTimeout(() => { const t = "🐛 ERROR detected! The inner loop starts `j` at 0 — the same index as `i`. That means when `i == j`, we're comparing an element with itself, which always matches!"; addAI(t, 'error', [4]); speak(t); }, 500),
       4: () => {
-        setTimeout(() => addAI('🐛 This condition makes it worse — `nums[i] == nums[j]` is trivially True whenever `i == j`. Fix: change the inner loop to `range(i + 1, len(nums))`.', 'error', [4, 5]), 500);
-        // Voice demo: triggers ~1s after this line finishes typing
+        setTimeout(() => { const t = "🐛 This condition makes it worse — `nums[i] == nums[j]` is trivially True whenever `i == j`. Fix: change the inner loop to `range(i + 1, len(nums))`."; addAI(t, 'error', [4, 5]); speak(t); }, 500);
+        // Scripted demo voice exchange
         setTimeout(() => {
-          setIsVoiceActive(true);   // activate wave animation
+          setDemoVoiceActive(true);
           setIsTyping(false);
           setMessages(msgs => [...msgs, { type: 'user', content: 'Wait — so j needs to start at i + 1 to avoid comparing the element to itself?', timestamp: now() }]);
           setIsThinking(true);
           setTimeout(() => {
             setIsThinking(false);
-            addAI('Exactly right! Starting j at i+1 solves two problems at once:\n\n1. No self-comparison (i ≠ j always)\n2. Each pair [i, j] is checked once instead of twice\n\nThis changes the complexity from O(n²) full scans to O(n²/2) — still quadratic, but half the work. Combined with using a set for `result`, you\'re thinking like a performance-aware engineer 🚀', undefined, [4, 5]);
-            setTimeout(() => { setIsVoiceActive(false); setIsTyping(true); }, 2000);
+            const reply = "Exactly right! Starting j at i+1 solves two problems at once:\n\n1. No self-comparison (i ≠ j always)\n2. Each pair [i, j] is checked once instead of twice\n\nThis changes the complexity from O(n²) full scans to O(n²/2) — still quadratic, but half the work. Combined with using a set for `result`, you're thinking like a performance-aware engineer 🚀";
+            addAI(reply, undefined, [4, 5]);
+            speak(reply);
+            setTimeout(() => { setDemoVoiceActive(false); setIsTyping(true); }, 2000);
           }, 1600);
         }, 1200);
       },
-      6:  () => setTimeout(() => addAI('`set(result)` removes duplicates before converting back to a list. It\'s a clean trick, though collecting into a set from the start is even better.', 'teach', [7]), 500),
-      8:  () => setTimeout(() => addAI('Now we\'re writing `count_words` — a word-frequency counter. This is a very common interview pattern. Watch how we\'ll spot a few issues as we type.', 'teach', [9]), 500),
-      9:  () => setTimeout(() => addAI('⚠️ Warning: `text.split(" ")` only splits on a single space. Double spaces, tabs, or newlines will produce empty-string tokens. Use `text.split()` (no argument) instead.', 'warning', [10]), 500),
-      10: () => setTimeout(() => addAI('⚡ The whole dictionary loop below can be replaced with one import: `from collections import Counter` then `return Counter(words)`. Same result, zero boilerplate.', 'optimize', [11]), 500),
-      13: () => setTimeout(() => addAI('⚡ Small but worth knowing: `word_count[word] = word_count[word] + 1` should be `word_count[word] += 1`. Even better — use `.get(word, 0) + 1` to avoid the `else` branch entirely.', 'optimize', [14]), 500),
-      16: () => setTimeout(() => addAI('Function done ✅. It returns a `dict` mapping each word → its count. We\'ll call it with a test string on the next two lines.', 'teach', [17]), 500),
+      6:  () => setTimeout(() => { const t = "`set(result)` removes duplicates before converting back to a list. It's a clean trick, though collecting into a set from the start is even better."; addAI(t, 'teach', [7]); speak(t); }, 500),
+      8:  () => setTimeout(() => { const t = "Now we're writing `count_words` — a word-frequency counter. This is a very common interview pattern. Watch how we'll spot a few issues as we type."; addAI(t, 'teach', [9]); speak(t); }, 500),
+      9:  () => setTimeout(() => { const t = '⚠️ Warning: `text.split(" ")` only splits on a single space. Double spaces, tabs, or newlines will produce empty-string tokens. Use `text.split()` (no argument) instead.'; addAI(t, 'warning', [10]); speak(t); }, 500),
+      10: () => setTimeout(() => { const t = "⚡ The whole dictionary loop below can be replaced with one import: `from collections import Counter` then `return Counter(words)`. Same result, zero boilerplate."; addAI(t, 'optimize', [11]); speak(t); }, 500),
+      13: () => setTimeout(() => { const t = "⚡ Small but worth knowing: `word_count[word] = word_count[word] + 1` should be `word_count[word] += 1`. Even better — use `.get(word, 0) + 1` to avoid the `else` branch entirely."; addAI(t, 'optimize', [14]); speak(t); }, 500),
+      16: () => setTimeout(() => { const t = "Function done ✅. It returns a `dict` mapping each word → its count. We'll call it with a test string on the next two lines."; addAI(t, 'teach', [17]); speak(t); }, 500),
     };
 
     triggers[lineIdx]?.();
-  }, []);
-
-  // ── User text input ──────────────────────────────────────────────────────────
-  const handleSendMessage = (message: string) => {
-    setMessages((m) => [...m, { type: 'user', content: message, timestamp: now() }]);
-    setIsThinking(true);
-    setTimeout(() => {
-      setIsThinking(false);
-      addAI(
-        "Great question! In Python, readability and performance often go hand in hand. The Pythonic way is usually also the more efficient one — using built-ins, comprehensions, and the standard library rather than reimplementing logic from scratch.",
-        'teach'
-      );
-    }, 1400);
-  };
+  }, [speak]);
 
   return (
     <div
@@ -261,7 +288,9 @@ export default function App() {
               isVoiceActive={isVoiceActive}
               isSpeaking={isSpeaking}
               isThinking={isThinking}
+              isRecording={isRecording}
               onToggleListening={() => setIsListening(!isListening)}
+              onToggleRecording={toggleRecording}
               onSendMessage={handleSendMessage}
               onLineClick={setHighlightedLine}
             />
