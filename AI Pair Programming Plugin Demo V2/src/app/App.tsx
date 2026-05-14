@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { CodeEditor, CodeLine } from './components/CodeEditor';
 import { AITeachingPanel } from './components/AITeachingPanel';
 import { WelcomePage } from './components/WelcomePage';
+import { useAIChat } from './components/useAIChat';
 import { Code2, Sparkles, Layers } from 'lucide-react';
 
 interface Message {
@@ -10,91 +11,88 @@ interface Message {
   content: string;
   timestamp: string;
   badge?: 'error' | 'optimize' | 'warning' | 'teach';
-  lineNumbers?: number[]; // clickable line refs shown in the chat bubble
+  lineNumbers?: number[];
 }
 
 // ─── Code script ──────────────────────────────────────────────────────────────
 
+// ─── Scenario 1: Student Grade Analyzer ──────────────────────────────────────
+// Bugs: division-by-zero on empty list (L5), IndexError on empty list (L6),
+//       off-by-one in grade boundaries (L13, L15, L17, L19)
+// Optimizations: augmented assignment (L4), built-in max() (L9)
+// Teaching: tuple return (L10), early-return pattern (L21), unpacking (L24)
+
 const codeLines: CodeLine[] = [
   {
-    number: 1,
-    content: 'def find_duplicates(nums):',
+    number: 1, content: 'def get_class_stats(scores):',
     annotationType: 'teach',
-    annotation: 'Define a function that finds all duplicate values in a list.',
+    annotation: 'We\'re defining a function — a reusable block of code. `scores` is the input it expects. The name is descriptive (`scores`, not `x`) — that matters when you\'re reading your own code weeks later.',
   },
+  { number: 2, content: '    total = 0' },
+  { number: 3, content: '    for score in scores:' },
   {
-    number: 2,
-    content: '    result = []',
+    number: 4, content: '        total = total + score',
     annotationType: 'optimize',
-    annotation: 'List membership check is O(n). A set() would give O(1) lookups.',
+    annotation: 'This works, but there\'s a shorter form that means exactly the same thing: `total += score`. You\'ll see `+=` everywhere in Python — it just means "add this to the existing value and save it."',
   },
   {
-    number: 3,
-    content: '    for i in range(len(nums)):',
-    annotationType: 'optimize',
-    annotation: '"for num in nums" is more Pythonic — avoids range(len()) boilerplate.',
-  },
-  {
-    number: 4,
-    content: '        for j in range(len(nums)):',
+    number: 5, content: '    average = total / len(scores)',
     annotationType: 'error',
-    annotation: 'Bug: j starts at 0, so when i == j the element compares with itself!',
+    annotation: '🐛 This will crash if `scores` is empty. `len([])` is 0, and dividing by zero raises a ZeroDivisionError. The fix: add a guard at the top — `if not scores: return 0, 0`. Always ask: what\'s the smallest possible input?',
   },
   {
-    number: 5,
-    content: '            if nums[i] == nums[j]:',
+    number: 6, content: '    highest = scores[0]',
     annotationType: 'error',
-    annotation: 'When i == j this is always True — every element "matches" itself.',
+    annotation: '🐛 Same empty-list problem — `scores[0]` crashes with IndexError if the list has nothing in it. Also: Python already has `max(scores)` built-in. That entire loop below? One word replaces it.',
   },
+  { number: 7, content: '    for score in scores:' },
+  { number: 8, content: '        if score > highest:' },
   {
-    number: 6,
-    content: '                result.append(nums[i])',
-  },
-  {
-    number: 7,
-    content: '    return list(set(result))',
-    annotationType: 'teach',
-    annotation: 'set() removes duplicates from the result, then list() converts it back.',
-  },
-  { number: 8, content: '' },
-  {
-    number: 9,
-    content: 'def count_words(text):',
-    annotationType: 'teach',
-    annotation: 'A new function — counts how often each word appears in a string.',
-  },
-  {
-    number: 10,
-    content: '    words = text.split(" ")',
-    annotationType: 'warning',
-    annotation: 'split(" ") breaks on single spaces only. Use split() to handle tabs & runs.',
-  },
-  {
-    number: 11,
-    content: '    word_count = {}',
+    number: 9, content: '            highest = score',
     annotationType: 'optimize',
-    annotation: 'collections.Counter(words) does all of the below in one line.',
+    annotation: 'These three lines are just `max(scores)` written out by hand. Python has built-ins for the most common loops — max, min, sum. If you find yourself writing a loop to find "the biggest thing," there\'s almost always a one-liner.',
   },
-  { number: 12, content: '    for word in words:' },
-  { number: 13, content: '        if word in word_count:' },
   {
-    number: 14,
-    content: '            word_count[word] = word_count[word] + 1',
-    annotationType: 'optimize',
-    annotation: 'Simplify: word_count[word] += 1  (or use word_count.get(word, 0) + 1)',
-  },
-  { number: 15, content: '        else:' },
-  { number: 16, content: '            word_count[word] = 1' },
-  {
-    number: 17,
-    content: '    return word_count',
+    number: 10, content: '    return average, highest',
     annotationType: 'teach',
-    annotation: 'Returns a dict mapping every unique word to its frequency.',
+    annotation: 'A function can return two values at once. Python wraps them as a pair (a "tuple"). The caller then unpacks them: `avg, top = get_class_stats(scores)`. This is cleaner than returning a list and then doing `result[0]`, `result[1]`.',
   },
-  { number: 18, content: '' },
-  { number: 19, content: 'text = "hello world hello python"' },
-  { number: 20, content: 'result = count_words(text)' },
-  { number: 21, content: 'print(result)' },
+  { number: 11, content: '' },
+  {
+    number: 12, content: 'def assign_grade(score):',
+    annotationType: 'teach',
+    annotation: 'Second function: takes a number, returns a letter. As you read each condition, ask yourself: what happens when the score is exactly 90? Exactly 80? The boundary values are where this code breaks.',
+  },
+  {
+    number: 13, content: '    if score > 90:',
+    annotationType: 'error',
+    annotation: '🐛 `> 90` means "strictly greater than 90." A score of exactly 90 fails this check and falls to the next branch — earning a B instead of an A. The fix is `>= 90`. This is one of the most common bugs in any code that handles ranges or boundaries.',
+  },
+  { number: 14, content: '        return "A"' },
+  {
+    number: 15, content: '    elif score > 80:',
+    annotationType: 'error',
+    annotation: '🐛 Same issue: exactly 80 gets "C" not "B". This repeats in every branch below. Good habit: after writing grade logic like this, always test the exact boundaries — 90, 80, 70, 60 — not just obvious values like 85.',
+  },
+  { number: 16, content: '        return "B"' },
+  { number: 17, content: '    elif score > 70:' },
+  { number: 18, content: '        return "C"' },
+  { number: 19, content: '    elif score > 60:' },
+  { number: 20, content: '        return "D"' },
+  {
+    number: 21, content: '    return "F"',
+    annotationType: 'teach',
+    annotation: 'No `else` needed. Every branch above already exits the function immediately with `return`, so if code reaches this line, it must be below 60. Returning early in each branch keeps things flat — less nesting, easier to follow.',
+  },
+  { number: 22, content: '' },
+  { number: 23, content: 'scores = [85, 92, 78, 90, 65]' },
+  {
+    number: 24, content: 'avg, top = get_class_stats(scores)',
+    annotationType: 'teach',
+    annotation: 'Unpacking in action — both return values land in named variables in one line. The alternative is `result = get_class_stats(scores)` then `result[0]` and `result[1]`, which is harder to read and easier to get wrong.',
+  },
+  { number: 25, content: 'print(f"Class average: {avg:.1f}")' },
+  { number: 26, content: 'print(f"Top score: {top}  Grade: {assign_grade(top)}")' },
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -107,13 +105,14 @@ function now() {
 
 export default function App() {
   const [started, setStarted] = useState(false);
-  const [isListening, setIsListening] = useState(true);
   const [isSpeaking, setIsSpeaking]   = useState(false);
   const [isThinking, setIsThinking]   = useState(false);
   const [isTyping, setIsTyping]       = useState(true);
   const [isVoiceActive, setIsVoiceActive] = useState(false);
   const [highlightedLine, setHighlightedLine] = useState<number | null>(null);
   const [showSkeleton, setShowSkeleton] = useState(false);
+
+  const { sendMessage: sendToAI, resetHistory } = useAIChat();
 
   // Auto-clear the highlight after 3.5 s
   useEffect(() => {
@@ -126,7 +125,7 @@ export default function App() {
     {
       type: 'ai',
       content:
-        "Hi! I'm your AI Pilot. We're writing two Python utility functions today — I'll flag errors 🐛, performance tips ⚡, and potential warnings ⚠️ as we go. Let's dive in!",
+        "Hey! I'm your AI coding partner. We're building a Student Grade Analyzer — two Python functions that compute class stats and assign letter grades. As we type, I'll point out bugs 🐛, suggest cleaner approaches ⚡, and explain the why behind each pattern 💡. Ask me anything as we go.",
       timestamp: '10:30 AM',
     },
   ]);
@@ -140,72 +139,120 @@ export default function App() {
 
   // ── Line-complete callback from CodeEditor ────────────────────────────────
   const handleLineComplete = useCallback((lineIdx: number) => {
-    // Simulate AI "speaking" briefly as it processes each completed line
     setIsSpeaking(true);
     setTimeout(() => setIsSpeaking(false), 1100);
 
-    // Teaching messages keyed by line index (0-based array index)
+    // Triggers keyed by 0-based line index in codeLines
     const triggers: Record<number, () => void> = {
-      0: () => setTimeout(() => addAI('We start with `def` — Python\'s keyword for defining a function. The name `find_duplicates` describes exactly what it does. Always name functions by what they return or do.', 'teach', [1]), 500),
-      1: () => setTimeout(() => addAI('⚡ Optimization spotted: using a plain list for `result` means every `in` check scans the whole list — that\'s O(n) per check. A `set()` would cut that to O(1).', 'optimize', [2]), 500),
-      2: () => setTimeout(() => addAI('⚡ Another tip: `for i in range(len(nums))` is C-style thinking in Python. The Pythonic way is `for num in nums` — cleaner and marginally faster.', 'optimize', [3]), 500),
-      3: () => setTimeout(() => addAI('🐛 ERROR detected! The inner loop starts `j` at 0 — the same index as `i`. That means when `i == j`, we\'re comparing an element with itself, which always matches!', 'error', [4]), 500),
-      4: () => {
-        setTimeout(() => addAI('🐛 This condition makes it worse — `nums[i] == nums[j]` is trivially True whenever `i == j`. Fix: change the inner loop to `range(i + 1, len(nums))`.', 'error', [4, 5]), 500);
-        // Voice demo: triggers ~1s after this line finishes typing
+      // L1 — def get_class_stats
+      0: () => setTimeout(() => addAI(
+        '`def` is Python\'s keyword for defining a reusable function. The parameter `scores` is a placeholder — the function doesn\'t care what list it receives until it\'s called. That\'s what makes functions powerful.',
+        'teach', [1]), 500),
+
+      // L4 — total = total + score
+      3: () => setTimeout(() => addAI(
+        '`total = total + score` works, but there\'s a shorter form that means the same thing: `total += score`. You\'ll see `+=` constantly in Python — it just means "add to the existing value and save it."',
+        'optimize', [4]), 500),
+
+      // L5 — average = total / len(scores)
+      4: () => setTimeout(() => addAI(
+        '🐛 This line crashes if `scores` is an empty list. `len([])` is 0, and dividing by 0 raises a ZeroDivisionError. The function has no guard against that. Think: what\'s the smallest valid input to this function?',
+        'error', [5]), 500),
+
+      // L6 — highest = scores[0]
+      5: () => setTimeout(() => addAI(
+        '🐛 Same empty-list issue — `scores[0]` raises IndexError if the list is empty. But also: Python already has `max(scores)` built-in. That entire loop below? One word replaces it. Worth knowing before writing a loop: is there already a function for this?',
+        'error', [6]), 500),
+
+      // L9 — highest = score (end of manual loop)
+      8: () => setTimeout(() => addAI(
+        'Those three lines are `max(scores)` written by hand. `max()` is a built-in that does exactly this. Same goes for `min()` and `sum()`. If you\'re writing a loop to find "the biggest thing," there\'s almost always a one-liner — worth checking before writing the loop.',
+        'optimize', [7, 8, 9]), 500),
+
+      // L10 — return average, highest
+      9: () => setTimeout(() => addAI(
+        'A function can return two values at once — Python wraps them as a pair. The caller unpacks them: `avg, top = get_class_stats(scores)`. That\'s cleaner than storing the result and then accessing `result[0]` and `result[1]`.',
+        'teach', [10]), 500),
+
+      // L12 — def assign_grade
+      11: () => setTimeout(() => addAI(
+        'Second function — maps a number to a letter grade. Before reading the conditions, ask yourself: what should happen when someone passes in exactly 90? If you can answer that, you\'ll spot the bug as it appears.',
+        'teach', [12]), 500),
+
+      // L13 — if score > 90  →  voice interaction
+      12: () => {
+        setTimeout(() => addAI(
+          '🐛 `> 90` means strictly greater-than — a score of exactly 90 fails this check and falls to the next branch, getting a "B" instead of an "A." This repeats on every boundary. The fix is `>=` (greater-than-or-equal). Does that make sense?',
+          'error', [13]), 500);
+
         setTimeout(() => {
-          setIsVoiceActive(true);   // activate wave animation
+          setIsVoiceActive(true);
           setIsTyping(false);
-          setMessages(msgs => [...msgs, { type: 'user', content: 'Wait — so j needs to start at i + 1 to avoid comparing the element to itself?', timestamp: now() }]);
+          setMessages(msgs => [...msgs, {
+            type: 'user',
+            content: 'Hang on — so if my score was exactly 90, this code gives me a B? Why does > vs >= even make a difference?',
+            timestamp: now(),
+          }]);
           setIsThinking(true);
           setTimeout(() => {
             setIsThinking(false);
-            addAI('Exactly right! Starting j at i+1 solves two problems at once:\n\n1. No self-comparison (i ≠ j always)\n2. Each pair [i, j] is checked once instead of twice\n\nThis changes the complexity from O(n²) full scans to O(n²/2) — still quadratic, but half the work. Combined with using a set for `result`, you\'re thinking like a performance-aware engineer 🚀', undefined, [4, 5]);
+            addAI(
+              'Right — `>` is "strictly greater than," so 90 doesn\'t qualify. Changing to `>=` includes the boundary itself.\n\nThis kind of bug shows up everywhere: grade cutoffs, age checks, price tiers, date ranges. The habit that catches it is testing the exact boundary value — not just 85 or 95, but 90 itself. If the boundary gives the wrong result, you\'ve got an off-by-one.',
+              undefined, [13, 15, 17, 19]);
             setTimeout(() => { setIsVoiceActive(false); setIsTyping(true); }, 2000);
-          }, 1600);
+          }, 1700);
         }, 1200);
       },
-      6:  () => setTimeout(() => addAI('`set(result)` removes duplicates before converting back to a list. It\'s a clean trick, though collecting into a set from the start is even better.', 'teach', [7]), 500),
-      8:  () => setTimeout(() => addAI('Now we\'re writing `count_words` — a word-frequency counter. This is a very common interview pattern. Watch how we\'ll spot a few issues as we type.', 'teach', [9]), 500),
-      9:  () => setTimeout(() => addAI('⚠️ Warning: `text.split(" ")` only splits on a single space. Double spaces, tabs, or newlines will produce empty-string tokens. Use `text.split()` (no argument) instead.', 'warning', [10]), 500),
-      10: () => setTimeout(() => addAI('⚡ The whole dictionary loop below can be replaced with one import: `from collections import Counter` then `return Counter(words)`. Same result, zero boilerplate.', 'optimize', [11]), 500),
-      13: () => setTimeout(() => addAI('⚡ Small but worth knowing: `word_count[word] = word_count[word] + 1` should be `word_count[word] += 1`. Even better — use `.get(word, 0) + 1` to avoid the `else` branch entirely.', 'optimize', [14]), 500),
-      16: () => setTimeout(() => addAI('Function done ✅. It returns a `dict` mapping each word → its count. We\'ll call it with a test string on the next two lines.', 'teach', [17]), 500),
+
+      // L15 — elif score > 80
+      14: () => setTimeout(() => addAI(
+        '🐛 Same issue here — exactly 80 gets "C" instead of "B." This repeats in every branch. The key takeaway: always test the boundary values specifically, not just a score you know is clearly inside the range.',
+        'error', [15]), 500),
+
+      // L21 — return "F"
+      20: () => setTimeout(() => addAI(
+        'No `else` needed. Every branch above already exits the function immediately, so if Python reaches this line, the score must be below 60. This keeps the structure flat — one level of indentation instead of nested else blocks.',
+        'teach', [21]), 500),
+
+      // L24 — avg, top = get_class_stats(scores)
+      23: () => setTimeout(() => addAI(
+        'Unpacking — both return values land in named variables in one line. The alternative is storing the result and using `result[0]`, `result[1]` — which is harder to read and easy to get wrong if the order changes.',
+        'teach', [24]), 500),
+
+      // L26 — final print
+      25: () => setTimeout(() => addAI(
+        'That\'s the full program. Two categories of bug — empty-list crashes on lines 5 and 6, and off-by-one on every grade boundary. Try calling `get_class_stats([])` and see what error comes back. That\'s a useful thing to know how to read.',
+        'teach', [5, 6]), 500),
     };
 
     triggers[lineIdx]?.();
   }, []);
 
-  // ── User text input ──────────────────────────────────────────────────────────
-  const handleSendMessage = (message: string) => {
+  // ── User message → real AI response ─────────────────────────────────────────
+  const handleSendMessage = useCallback(async (message: string) => {
     setMessages((m) => [...m, { type: 'user', content: message, timestamp: now() }]);
     setIsThinking(true);
-    setTimeout(() => {
-      setIsThinking(false);
-      addAI(
-        "Great question! In Python, readability and performance often go hand in hand. The Pythonic way is usually also the more efficient one — using built-ins, comprehensions, and the standard library rather than reimplementing logic from scratch.",
-        'teach'
-      );
-    }, 1400);
-  };
+    const reply = await sendToAI(message);
+    setIsThinking(false);
+    setMessages((m) => [...m, { type: 'ai', content: reply, timestamp: now(), badge: 'teach' }]);
+  }, [sendToAI]);
 
-  // ── Skeleton mode chat handler ───────────────────────────────────────────────
-  const handleSkeletonSendMessage = (message: string) => {
+  // ── Skeleton mode — also uses real AI ────────────────────────────────────────
+  const handleSkeletonSendMessage = useCallback(async (message: string) => {
     setSkeletonMessages((m) => [...m, { type: 'user', content: message, timestamp: now() }]);
     setIsThinking(true);
-    setTimeout(() => {
-      setIsThinking(false);
-      setSkeletonMessages((m) => [
-        ...m,
-        {
-          type: 'ai',
-          content:
-            "Great question! In Python, readability and performance often go hand in hand. The Pythonic way is usually also the more efficient one — using built-ins, comprehensions, and the standard library rather than reimplementing logic from scratch.",
-          timestamp: now(),
-          badge: 'teach',
-        },
-      ]);
-    }, 1400);
+    const reply = await sendToAI(message);
+    setIsThinking(false);
+    setSkeletonMessages((m) => [
+      ...m,
+      { type: 'ai', content: reply, timestamp: now(), badge: 'teach' },
+    ]);
+  }, [sendToAI]);
+
+  // Reset AI history when returning to welcome screen
+  const handleQuit = () => {
+    setStarted(false);
+    resetHistory();
   };
 
   return (
@@ -272,9 +319,9 @@ export default function App() {
                   </span>
                 </motion.button>
 
-                {/* Demo Mode pill → back to welcome */}
+                {/* Quit button */}
                 <motion.button
-                  onClick={() => setStarted(false)}
+                  onClick={handleQuit}
                   whileHover={{ scale: 1.04 }}
                   whileTap={{ scale: 0.96 }}
                   className="px-4 py-2 bg-[#22d3ee]/10 border border-[#22d3ee]/30 rounded-full transition-all hover:bg-[#22d3ee]/20 hover:border-[#22d3ee]/60"
@@ -322,11 +369,9 @@ export default function App() {
               <div className="relative h-full">
                 <AITeachingPanel
                   messages={showSkeleton ? skeletonMessages : messages}
-                  isListening={isListening}
                   isVoiceActive={isVoiceActive}
                   isSpeaking={isSpeaking}
                   isThinking={isThinking}
-                  onToggleListening={() => setIsListening(!isListening)}
                   onSendMessage={showSkeleton ? handleSkeletonSendMessage : handleSendMessage}
                   onLineClick={setHighlightedLine}
                 />
