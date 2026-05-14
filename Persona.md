@@ -5,16 +5,16 @@
 ## Jane Doe
 
 **Age:** 25
-**Role:** Student/Junior software engineer (limited technical experience; some study)
-**Tech background:** Comfortable with everyday workplace software and has dabbled in basic coding (e.g. scripting, query languages). Now learning Python to support her new work requirements, and keep pace with colleagues.
+**Role:** Student studying non-IT subjects (limited technical experience; some basic study)
+**Tech background:** Comfortable with everyday productivity software and has dabbled in basic coding (e.g. scripting, query languages). Now learning Python to expand her skillset and enhance employability.
 
-> *"I get the basics, but I keep hitting walls – and I don't always know what I don't know."*
+> *"I get the basic ideas, but I keep hitting walls – and I don't always know how to implement them/get started, and I don't know what I don't know."*
 
 ---
 
 ## Profile
 
-Jane has picked up some coding through a mix of online courses and ad-hoc tutorials. She can read simple code and tweak existing scripts, but writing something new from scratch in Python feels slow and uncertain – in particular as she hasn’t learned it before. She turns to generative AI tools when she gets stuck, but often accepts the output without fully understanding it.  This creates problems when something  breaks, as she doesn’t know where to start fixing it. She is motivated, but time-poor, and wants to optimise her skills my learning – not just copying and pasting code.
+Jane has picked up some coding through a mix of online courses and ad-hoc tutorials. She can read simple code and tweak existing scripts, but writing something new from scratch in Python feels slow and uncertain – in particular as she hasn’t learned it before. She turns to generative AI tools when she gets stuck, but often accepts the output without fully understanding it.  This creates problems when something  breaks, as she doesn’t know where to start fixing it. She is motivated, but time-poor due to her studies, and wants to optimise her skills by learning – not just copying and pasting code.
 
 ---
 
