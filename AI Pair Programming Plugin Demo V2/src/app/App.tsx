@@ -1,9 +1,10 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { CodeEditor, CodeLine } from './components/CodeEditor';
 import { AITeachingPanel } from './components/AITeachingPanel';
 import { WelcomePage } from './components/WelcomePage';
 import { useAIChat } from './components/useAIChat';
+import { useGoogleTTS } from './components/useGoogleTTS';
 import { Code2, Sparkles, Layers } from 'lucide-react';
 
 interface Message {
@@ -16,83 +17,78 @@ interface Message {
 
 // ─── Code script ──────────────────────────────────────────────────────────────
 
-// ─── Scenario 1: Student Grade Analyzer ──────────────────────────────────────
-// Bugs: division-by-zero on empty list (L5), IndexError on empty list (L6),
-//       off-by-one in grade boundaries (L13, L15, L17, L19)
-// Optimizations: augmented assignment (L4), built-in max() (L9)
-// Teaching: tuple return (L10), early-return pattern (L21), unpacking (L24)
+// ─── Scenario 1: Playlist Duration Analyzer ───────────────────────────────────
+// Optimize: total = total + ... → += (L4)
+// Teach:    list-of-dicts pattern (L1), list comprehension (L12), lambda (L15)
+// Bug:      sorted(playlist) → TypeError, needs key=lambda (L15)
+// Bug:      seconds / 60 → float, needs // floor division (L18)
+// Bug:      f"{minutes}:{secs}" → missing :02d zero-padding (L20)
 
 const codeLines: CodeLine[] = [
   {
-    number: 1, content: 'def get_class_stats(scores):',
+    number: 1, content: 'def total_duration(playlist):',
     annotationType: 'teach',
-    annotation: 'We\'re defining a function — a reusable block of code. `scores` is the input it expects. The name is descriptive (`scores`, not `x`) — that matters when you\'re reading your own code weeks later.',
+    annotation: "The parameter `playlist` is a list of dicts — each dict is one song: {'title': 'Blinding Lights', 'duration': 200}. This list-of-dicts pattern is how Python represents a table of records. The function name tells you exactly what shape of data to pass in.",
   },
   { number: 2, content: '    total = 0' },
-  { number: 3, content: '    for score in scores:' },
+  { number: 3, content: '    for song in playlist:' },
   {
-    number: 4, content: '        total = total + score',
+    number: 4, content: "        total = total + song['duration']",
     annotationType: 'optimize',
-    annotation: 'This works, but there\'s a shorter form that means exactly the same thing: `total += score`. You\'ll see `+=` everywhere in Python — it just means "add this to the existing value and save it."',
+    annotation: "`total += song['duration']` means exactly the same thing, shorter. The bracket notation — `song['duration']` — looks up the 'duration' key inside each song dict. You'll write this any time you're looping over a list of records.",
   },
+  { number: 5, content: '    return total' },
+  { number: 6, content: '' },
   {
-    number: 5, content: '    average = total / len(scores)',
-    annotationType: 'error',
-    annotation: '🐛 This will crash if `scores` is empty. `len([])` is 0, and dividing by zero raises a ZeroDivisionError. The fix: add a guard at the top — `if not scores: return 0, 0`. Always ask: what\'s the smallest possible input?',
-  },
-  {
-    number: 6, content: '    highest = scores[0]',
-    annotationType: 'error',
-    annotation: '🐛 Same empty-list problem — `scores[0]` crashes with IndexError if the list has nothing in it. Also: Python already has `max(scores)` built-in. That entire loop below? One word replaces it.',
-  },
-  { number: 7, content: '    for score in scores:' },
-  { number: 8, content: '        if score > highest:' },
-  {
-    number: 9, content: '            highest = score',
-    annotationType: 'optimize',
-    annotation: 'These three lines are just `max(scores)` written out by hand. Python has built-ins for the most common loops — max, min, sum. If you find yourself writing a loop to find "the biggest thing," there\'s almost always a one-liner.',
-  },
-  {
-    number: 10, content: '    return average, highest',
+    number: 7, content: 'def find_by_artist(playlist, artist):',
     annotationType: 'teach',
-    annotation: 'A function can return two values at once. Python wraps them as a pair (a "tuple"). The caller then unpacks them: `avg, top = get_class_stats(scores)`. This is cleaner than returning a list and then doing `result[0]`, `result[1]`.',
+    annotation: "Second function — search songs by artist. Notice the pattern coming: empty list, loop, condition, append. This is so common in Python that there's a one-liner for it. Watch the return line.",
   },
-  { number: 11, content: '' },
+  { number: 8, content: '    result = []' },
+  { number: 9, content: '    for song in playlist:' },
+  { number: 10, content: "        if song['artist'] == artist:" },
+  { number: 11, content: "            result.append(song['title'])" },
   {
-    number: 12, content: 'def assign_grade(score):',
+    number: 12, content: '    return result',
     annotationType: 'teach',
-    annotation: 'Second function: takes a number, returns a letter. As you read each condition, ask yourself: what happens when the score is exactly 90? Exactly 80? The boundary values are where this code breaks.',
+    annotation: "Those four lines — empty list, loop, condition, append — collapse into one: `[s['title'] for s in playlist if s['artist'] == artist]`. That's a list comprehension. Same output, less code, and once the pattern clicks it reads like plain English.",
+  },
+  { number: 13, content: '' },
+  {
+    number: 14, content: 'def sort_by_duration(playlist):',
+    annotationType: 'teach',
+    annotation: "Third function — sort songs from shortest to longest. Before reading the next line, think: can Python compare two dicts directly? What would `sorted(playlist)` actually do with a list of dicts?",
   },
   {
-    number: 13, content: '    if score > 90:',
+    number: 15, content: '    return sorted(playlist)',
     annotationType: 'error',
-    annotation: '🐛 `> 90` means "strictly greater than 90." A score of exactly 90 fails this check and falls to the next branch — earning a B instead of an A. The fix is `>= 90`. This is one of the most common bugs in any code that handles ranges or boundaries.',
+    annotation: "🐛 This raises a TypeError at runtime — Python can't compare two dicts directly, so it doesn't know what order to put them in. Fix: `sorted(playlist, key=lambda s: s['duration'])`. The lambda tells Python which field to use for ordering.",
   },
-  { number: 14, content: '        return "A"' },
+  { number: 16, content: '' },
+  { number: 17, content: 'def format_duration(seconds):' },
   {
-    number: 15, content: '    elif score > 80:',
+    number: 18, content: '    minutes = seconds / 60',
     annotationType: 'error',
-    annotation: '🐛 Same issue: exactly 80 gets "C" not "B". This repeats in every branch below. Good habit: after writing grade logic like this, always test the exact boundaries — 90, 80, 70, 60 — not just obvious values like 85.',
+    annotation: "🐛 `/` in Python 3 always returns a float — 637 / 60 gives 10.616..., not 10. For whole minutes use `//` (floor division): 637 // 60 is 10. This is one of Python 3's most common surprises for people coming from other languages.",
   },
-  { number: 16, content: '        return "B"' },
-  { number: 17, content: '    elif score > 70:' },
-  { number: 18, content: '        return "C"' },
-  { number: 19, content: '    elif score > 60:' },
-  { number: 20, content: '        return "D"' },
+  { number: 19, content: '    secs = seconds % 60' },
   {
-    number: 21, content: '    return "F"',
-    annotationType: 'teach',
-    annotation: 'No `else` needed. Every branch above already exits the function immediately with `return`, so if code reaches this line, it must be below 60. Returning early in each branch keeps things flat — less nesting, easier to follow.',
+    number: 20, content: '    return f"{minutes}:{secs}"',
+    annotationType: 'error',
+    annotation: '🐛 Two issues: `minutes` is still a float (from line 18), and single-digit seconds display as "3:5" not "3:05". Fix both: `//` on line 18, then `f"{minutes:02d}:{secs:02d}"`. The `:02d` means "integer, minimum 2 digits, zero-padded".',
   },
-  { number: 22, content: '' },
-  { number: 23, content: 'scores = [85, 92, 78, 90, 65]' },
+  { number: 21, content: '' },
+  { number: 22, content: 'songs = [' },
+  { number: 23, content: "    {'title': 'Blinding Lights', 'artist': 'The Weeknd', 'duration': 200}," },
+  { number: 24, content: "    {'title': 'Shape of You', 'artist': 'Ed Sheeran', 'duration': 234}," },
+  { number: 25, content: "    {'title': 'Levitating', 'artist': 'Dua Lipa', 'duration': 203}," },
+  { number: 26, content: ']' },
   {
-    number: 24, content: 'avg, top = get_class_stats(scores)',
+    number: 27, content: 'total = total_duration(songs)',
     annotationType: 'teach',
-    annotation: 'Unpacking in action — both return values land in named variables in one line. The alternative is `result = get_class_stats(scores)` then `result[0]` and `result[1]`, which is harder to read and easier to get wrong.',
+    annotation: "Calling the function with real data — `total` is now 637, the sum of all three durations in seconds. That's what format_duration will turn into a readable time string. Try working out in your head what it should give back.",
   },
-  { number: 25, content: 'print(f"Class average: {avg:.1f}")' },
-  { number: 26, content: 'print(f"Top score: {top}  Grade: {assign_grade(top)}")' },
+  { number: 28, content: 'print(f"Playlist: {len(songs)} songs, {format_duration(total)}")' },
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -105,14 +101,22 @@ function now() {
 
 export default function App() {
   const [started, setStarted] = useState(false);
-  const [isSpeaking, setIsSpeaking]   = useState(false);
-  const [isThinking, setIsThinking]   = useState(false);
-  const [isTyping, setIsTyping]       = useState(true);
+  const [isSpeaking, setIsSpeaking]     = useState(false);
+  const [isThinking, setIsThinking]     = useState(false);
+  const [isTyping, setIsTyping]         = useState(true);
   const [isVoiceActive, setIsVoiceActive] = useState(false);
   const [highlightedLine, setHighlightedLine] = useState<number | null>(null);
   const [showSkeleton, setShowSkeleton] = useState(false);
 
   const { sendMessage: sendToAI, resetHistory } = useAIChat();
+  const { isSpeaking: ttsIsSpeaking, isMuted, speak, stop: stopSpeaking, toggleMute } = useGoogleTTS();
+
+  // Tracks which codeLines index has been reached so we can give the AI code context
+  const currentLineIdxRef = useRef(-1);
+
+  // Skeleton mode context — updated as the user types and navigates challenges
+  const skeletonCodeRef      = useRef('');
+  const skeletonChallengeRef = useRef({ title: '', description: '' });
 
   // Auto-clear the highlight after 3.5 s
   useEffect(() => {
@@ -125,132 +129,145 @@ export default function App() {
     {
       type: 'ai',
       content:
-        "Hey! I'm your AI coding partner. We're building a Student Grade Analyzer — two Python functions that compute class stats and assign letter grades. As we type, I'll point out bugs 🐛, suggest cleaner approaches ⚡, and explain the why behind each pattern 💡. Ask me anything as we go.",
+        "Hey! I'm your AI pair programming partner. We're building a Playlist Duration Analyzer — Python functions that work with a list of song dicts. I'll call out bugs, suggest improvements, and explain the why. Ask me anything.",
       timestamp: '10:30 AM',
     },
   ]);
 
-  // ── Skeleton mode has its own independent chat history ────────────────────
+  // ── Skeleton mode has its own independent chat history ───────────────────────
   const [skeletonMessages, setSkeletonMessages] = useState<Message[]>([]);
 
   function addAI(content: string, badge?: Message['badge'], lineNumbers?: number[]) {
     setMessages((m) => [...m, { type: 'ai', content, timestamp: now(), badge, lineNumbers }]);
   }
 
-  // ── Line-complete callback from CodeEditor ────────────────────────────────
+  // ── Line-complete callback from CodeEditor ────────────────────────────────────
   const handleLineComplete = useCallback((lineIdx: number) => {
+    currentLineIdxRef.current = lineIdx;
     setIsSpeaking(true);
     setTimeout(() => setIsSpeaking(false), 1100);
 
-    // Triggers keyed by 0-based line index in codeLines
     const triggers: Record<number, () => void> = {
-      // L1 — def get_class_stats
+
+      // L1 — def total_duration
       0: () => setTimeout(() => addAI(
-        '`def` is Python\'s keyword for defining a reusable function. The parameter `scores` is a placeholder — the function doesn\'t care what list it receives until it\'s called. That\'s what makes functions powerful.',
+        "Each song is a dict with fields like title, artist, and duration. This list-of-dicts pattern is how Python stores a table of records.",
         'teach', [1]), 500),
 
-      // L4 — total = total + score
+      // L4 — total = total + song['duration']
       3: () => setTimeout(() => addAI(
-        '`total = total + score` works, but there\'s a shorter form that means the same thing: `total += score`. You\'ll see `+=` constantly in Python — it just means "add to the existing value and save it."',
+        "This works, but total plus-equals does the same thing shorter. The bracket notation looks up the duration key inside each song dict.",
         'optimize', [4]), 500),
 
-      // L5 — average = total / len(scores)
-      4: () => setTimeout(() => addAI(
-        '🐛 This line crashes if `scores` is an empty list. `len([])` is 0, and dividing by 0 raises a ZeroDivisionError. The function has no guard against that. Think: what\'s the smallest valid input to this function?',
-        'error', [5]), 500),
+      // L7 — def find_by_artist
+      6: () => setTimeout(() => addAI(
+        "Second function — find songs by artist. Watch the return line for a one-liner version of this whole loop.",
+        'teach', [7]), 500),
 
-      // L6 — highest = scores[0]
-      5: () => setTimeout(() => addAI(
-        '🐛 Same empty-list issue — `scores[0]` raises IndexError if the list is empty. But also: Python already has `max(scores)` built-in. That entire loop below? One word replaces it. Worth knowing before writing a loop: is there already a function for this?',
-        'error', [6]), 500),
-
-      // L9 — highest = score (end of manual loop)
-      8: () => setTimeout(() => addAI(
-        'Those three lines are `max(scores)` written by hand. `max()` is a built-in that does exactly this. Same goes for `min()` and `sum()`. If you\'re writing a loop to find "the biggest thing," there\'s almost always a one-liner — worth checking before writing the loop.',
-        'optimize', [7, 8, 9]), 500),
-
-      // L10 — return average, highest
-      9: () => setTimeout(() => addAI(
-        'A function can return two values at once — Python wraps them as a pair. The caller unpacks them: `avg, top = get_class_stats(scores)`. That\'s cleaner than storing the result and then accessing `result[0]` and `result[1]`.',
-        'teach', [10]), 500),
-
-      // L12 — def assign_grade
+      // L12 — return result (end of find_by_artist loop)
       11: () => setTimeout(() => addAI(
-        'Second function — maps a number to a letter grade. Before reading the conditions, ask yourself: what should happen when someone passes in exactly 90? If you can answer that, you\'ll spot the bug as it appears.',
-        'teach', [12]), 500),
+        "That whole loop is one line as a list comprehension. Once the pattern clicks, writing it the long way starts to feel slow.",
+        'teach', [8, 9, 10, 11, 12]), 500),
 
-      // L13 — if score > 90  →  voice interaction
-      12: () => {
+      // L14 — def sort_by_duration
+      13: () => setTimeout(() => addAI(
+        "Third function — sort by duration. Before reading the next line: can Python compare two dicts directly?",
+        'teach', [14]), 500),
+
+      // L15 — return sorted(playlist)  →  bug + voice demo
+      14: () => {
         setTimeout(() => addAI(
-          '🐛 `> 90` means strictly greater-than — a score of exactly 90 fails this check and falls to the next branch, getting a "B" instead of an "A." This repeats on every boundary. The fix is `>=` (greater-than-or-equal). Does that make sense?',
-          'error', [13]), 500);
+          "sorted(playlist) raises a TypeError — Python can't compare dicts directly. The fix is sorted(playlist, key=lambda s: s duration), which tells Python to sort by the duration field.",
+          'error', [15]), 500);
 
         setTimeout(() => {
           setIsVoiceActive(true);
           setIsTyping(false);
           setMessages(msgs => [...msgs, {
             type: 'user',
-            content: 'Hang on — so if my score was exactly 90, this code gives me a B? Why does > vs >= even make a difference?',
+            content: "Hold on — what even is a lambda? I've seen it before but never really got it.",
             timestamp: now(),
           }]);
           setIsThinking(true);
           setTimeout(() => {
             setIsThinking(false);
             addAI(
-              'Right — `>` is "strictly greater than," so 90 doesn\'t qualify. Changing to `>=` includes the boundary itself.\n\nThis kind of bug shows up everywhere: grade cutoffs, age checks, price tiers, date ranges. The habit that catches it is testing the exact boundary value — not just 85 or 95, but 90 itself. If the boundary gives the wrong result, you\'ve got an off-by-one.',
-              undefined, [13, 15, 17, 19]);
+              "A lambda is just a function with no name — lambda s: s duration does exactly the same thing as writing a regular def function that returns the duration field. It's shorthand for when you only need the function in one place.",
+              undefined, [15]);
             setTimeout(() => { setIsVoiceActive(false); setIsTyping(true); }, 2000);
           }, 1700);
         }, 1200);
       },
 
-      // L15 — elif score > 80
-      14: () => setTimeout(() => addAI(
-        '🐛 Same issue here — exactly 80 gets "C" instead of "B." This repeats in every branch. The key takeaway: always test the boundary values specifically, not just a score you know is clearly inside the range.',
-        'error', [15]), 500),
+      // L18 — minutes = seconds / 60
+      17: () => setTimeout(() => addAI(
+        "In Python 3, a single slash always returns a float — 637 divided by 60 gives 10.6, not 10. Use double slash for whole minutes.",
+        'error', [18]), 500),
 
-      // L21 — return "F"
-      20: () => setTimeout(() => addAI(
-        'No `else` needed. Every branch above already exits the function immediately, so if Python reaches this line, the score must be below 60. This keeps the structure flat — one level of indentation instead of nested else blocks.',
-        'teach', [21]), 500),
+      // L20 — return f"{minutes}:{secs}"
+      19: () => setTimeout(() => addAI(
+        'Single-digit seconds will print as "3:5" instead of "3:05". Adding colon-zero-2-d inside the curly braces tells Python to zero-pad to at least 2 digits.',
+        'error', [18, 20]), 500),
 
-      // L24 — avg, top = get_class_stats(scores)
-      23: () => setTimeout(() => addAI(
-        'Unpacking — both return values land in named variables in one line. The alternative is storing the result and using `result[0]`, `result[1]` — which is harder to read and easy to get wrong if the order changes.',
-        'teach', [24]), 500),
+      // L27 — total = total_duration(songs)
+      26: () => setTimeout(() => addAI(
+        "total is now 637 seconds — the sum of all three song durations. That's what format_duration needs to turn into a readable time string.",
+        'teach', [27]), 500),
 
-      // L26 — final print
-      25: () => setTimeout(() => addAI(
-        'That\'s the full program. Two categories of bug — empty-list crashes on lines 5 and 6, and off-by-one on every grade boundary. Try calling `get_class_stats([])` and see what error comes back. That\'s a useful thing to know how to read.',
-        'teach', [5, 6]), 500),
+      // L28 — final print
+      27: () => setTimeout(() => addAI(
+        "Three bugs to fix: sorted needs key equals lambda, the single slash needs double slash, and the f-string needs colon-zero-2-d on both values.",
+        'teach', [15, 18, 20]), 500),
     };
 
     triggers[lineIdx]?.();
   }, []);
 
-  // ── User message → real AI response ─────────────────────────────────────────
+  // ── User message → real AI response ──────────────────────────────────────────
   const handleSendMessage = useCallback(async (message: string) => {
+    stopSpeaking();
     setMessages((m) => [...m, { type: 'user', content: message, timestamp: now() }]);
     setIsThinking(true);
-    const reply = await sendToAI(message);
+
+    // Enrich with the code currently visible on screen
+    const visibleCode = codeLines
+      .slice(0, currentLineIdxRef.current + 1)
+      .map(l => l.content)
+      .join('\n');
+    const contextualMessage = visibleCode
+      ? `[Code currently visible on screen:\n\`\`\`python\n${visibleCode}\n\`\`\`]\n\nJane's question: ${message}`
+      : message;
+
+    const reply = await sendToAI(contextualMessage);
     setIsThinking(false);
     setMessages((m) => [...m, { type: 'ai', content: reply, timestamp: now(), badge: 'teach' }]);
-  }, [sendToAI]);
+    speak(reply);
+  }, [sendToAI, speak, stopSpeaking]);
 
-  // ── Skeleton mode — also uses real AI ────────────────────────────────────────
+  // ── Skeleton mode — real AI with challenge context ───────────────────────────
   const handleSkeletonSendMessage = useCallback(async (message: string) => {
+    stopSpeaking();
     setSkeletonMessages((m) => [...m, { type: 'user', content: message, timestamp: now() }]);
     setIsThinking(true);
-    const reply = await sendToAI(message);
+
+    const { title, description } = skeletonChallengeRef.current;
+    const code = skeletonCodeRef.current;
+    const contextualMessage = title
+      ? `[Student is working on challenge: "${title}" — ${description}]\n[Their current code:\n\`\`\`python\n${code || '(empty)'}\n\`\`\`]\n\nJane's question: ${message}`
+      : message;
+
+    const reply = await sendToAI(contextualMessage);
     setIsThinking(false);
     setSkeletonMessages((m) => [
       ...m,
       { type: 'ai', content: reply, timestamp: now(), badge: 'teach' },
     ]);
-  }, [sendToAI]);
+    speak(reply);
+  }, [sendToAI, speak, stopSpeaking]);
 
   // Reset AI history when returning to welcome screen
   const handleQuit = () => {
+    stopSpeaking();
     setStarted(false);
     resetHistory();
   };
@@ -304,7 +321,7 @@ export default function App() {
               <div className="flex items-center gap-3">
                 {/* Skeleton view toggle */}
                 <motion.button
-                  onClick={() => setShowSkeleton(s => !s)}
+                  onClick={() => { stopSpeaking(); setShowSkeleton(s => !s); }}
                   whileHover={{ scale: 1.04 }}
                   whileTap={{ scale: 0.96 }}
                   className="px-3 py-2 rounded-full flex items-center gap-2 transition-all"
@@ -354,6 +371,8 @@ export default function App() {
                   editable={showSkeleton}
                   onLineComplete={handleLineComplete}
                   highlightedLine={highlightedLine}
+                  onCodeChange={(code) => { skeletonCodeRef.current = code; }}
+                  onChallengeChange={(title, description) => { skeletonChallengeRef.current = { title, description }; }}
                 />
               </div>
             </motion.div>
@@ -370,8 +389,10 @@ export default function App() {
                 <AITeachingPanel
                   messages={showSkeleton ? skeletonMessages : messages}
                   isVoiceActive={isVoiceActive}
-                  isSpeaking={isSpeaking}
+                  isSpeaking={isSpeaking || ttsIsSpeaking}
                   isThinking={isThinking}
+                  isMuted={isMuted}
+                  onToggleMute={toggleMute}
                   onSendMessage={showSkeleton ? handleSkeletonSendMessage : handleSendMessage}
                   onLineClick={setHighlightedLine}
                 />

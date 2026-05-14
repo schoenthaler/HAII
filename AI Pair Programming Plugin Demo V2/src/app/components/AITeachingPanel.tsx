@@ -1,7 +1,7 @@
 import { motion, AnimatePresence } from 'motion/react';
 import { VoiceVisualizer } from './VoiceVisualizer';
 import { useSpeechRecognition } from './useSpeechRecognition';
-import { Mic, Brain, Volume2, Send, X } from 'lucide-react';
+import { Mic, Brain, Volume2, VolumeX, Send, X } from 'lucide-react';
 import { useState, useEffect, useRef, useCallback } from 'react';
 
 interface Message {
@@ -17,6 +17,8 @@ interface AITeachingPanelProps {
   isVoiceActive: boolean;  // external override from demo animation
   isSpeaking: boolean;
   isThinking: boolean;
+  isMuted: boolean;
+  onToggleMute: () => void;
   onSendMessage?: (message: string) => void;
   onLineClick?: (lineNumber: number) => void;
 }
@@ -26,6 +28,8 @@ export function AITeachingPanel({
   isVoiceActive,
   isSpeaking,
   isThinking,
+  isMuted,
+  onToggleMute,
   onSendMessage,
   onLineClick,
 }: AITeachingPanelProps) {
@@ -103,14 +107,14 @@ export function AITeachingPanel({
             <div>
               <h2 className="text-[#e2e8f0] font-['DM_Sans'] font-medium">AI Pilot</h2>
               <p className="text-[#8b9bb4] text-sm">
-                {isListening
-                  ? '👂 Listening...'
-                  : isUserActive
+                {isListening || isUserActive
                   ? '👂 Listening...'
                   : isThinking
                   ? 'Thinking...'
                   : isSpeaking
-                  ? 'Speaking'
+                  ? '🔊 Speaking...'
+                  : isMuted
+                  ? '🔇 Voice muted'
                   : 'Ready to teach'}
               </p>
             </div>
@@ -185,6 +189,51 @@ export function AITeachingPanel({
                 </motion.div>
               )}
             </AnimatePresence>
+
+            {/* Mute / unmute AI voice */}
+            <motion.button
+              onClick={onToggleMute}
+              whileTap={{ scale: 0.94 }}
+              title={isMuted ? 'Unmute AI voice' : 'Mute AI voice'}
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 999,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: isMuted ? 'rgba(248,113,113,0.15)' : 'rgba(255,255,255,0.07)',
+                border: `1.5px solid ${isMuted ? '#f87171' : 'rgba(255,255,255,0.15)'}`,
+                cursor: 'pointer',
+                flexShrink: 0,
+              }}
+            >
+              <AnimatePresence mode="wait" initial={false}>
+                {isMuted ? (
+                  <motion.span
+                    key="muted"
+                    initial={{ opacity: 0, scale: 0.7 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.7 }}
+                    transition={{ duration: 0.12 }}
+                    style={{ display: 'flex' }}
+                  >
+                    <VolumeX className="w-4 h-4" style={{ color: '#f87171' }} />
+                  </motion.span>
+                ) : (
+                  <motion.span
+                    key="unmuted"
+                    initial={{ opacity: 0, scale: 0.7 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.7 }}
+                    transition={{ duration: 0.12 }}
+                    style={{ display: 'flex' }}
+                  >
+                    <Volume2 className="w-4 h-4" style={{ color: '#8b9bb4' }} />
+                  </motion.span>
+                )}
+              </AnimatePresence>
+            </motion.button>
 
             {/* Speak to AI / Stop button */}
             <motion.button

@@ -20,6 +20,8 @@ interface CodeEditorProps {
   onLineComplete?: (lineIndex: number) => void;
   highlightedLine?: number | null; // line number to scroll to + highlight
   editable?: boolean;          // true = let user type freely
+  onCodeChange?: (code: string) => void;
+  onChallengeChange?: (title: string, description: string) => void;
 }
 
 // ─── Annotation config ────────────────────────────────────────────────────────
@@ -145,94 +147,98 @@ interface CodingChallenge {
 const CODING_CHALLENGES: CodingChallenge[] = [
   {
     id: 1,
-    category: 'function',
-    title: 'Say Hello',
-    description: 'Write a function greet(name) that returns the string "Hello, {name}!".',
-    example: 'greet("Alice")  →  "Hello, Alice!"',
-    hint: 'Use an f-string: return f"Hello, {name}!"',
-    starter: 'def greet(name):\n    # write your code here\n    pass',
+    category: 'list',
+    title: 'Total Duration',
+    description: "Write total_duration(playlist) that returns the total seconds across all songs. Each song is a dict with a 'duration' key.",
+    example: "total_duration([\n  {'title': 'Song A', 'duration': 180},\n  {'title': 'Song B', 'duration': 240}\n])  →  420",
+    hint: "Loop and add up song['duration'] for each song. Or: sum(s['duration'] for s in playlist)",
+    starter: "def total_duration(playlist):\n    # loop and sum the 'duration' field from each song\n    pass",
     check: (code) => {
-      if (!/def\s+greet\s*\(/.test(code))
-        return { pass: false, feedback: 'Define a function called greet(name).' };
+      if (!/def\s+total_duration\s*\(/.test(code))
+        return { pass: false, feedback: 'Define a function called total_duration(playlist).' };
       if (!/return/.test(code))
-        return { pass: false, feedback: 'Use return to send back the greeting.' };
-      if (!(/f['"]/.test(code) || /['"]Hello/.test(code)))
-        return { pass: false, feedback: 'The return value should be a string containing the name.' };
-      return { pass: true, feedback: 'f-strings (f"...{var}...") are the modern Pythonic way to embed values in strings.' };
+        return { pass: false, feedback: 'Return the total at the end.' };
+      if (!(/\['duration'\]/.test(code) || /\["duration"\]/.test(code) || /sum/.test(code)))
+        return { pass: false, feedback: "Access the duration field with: song['duration']" };
+      return { pass: true, feedback: "Alternatively: sum(s['duration'] for s in playlist) — a generator expression that replaces the whole loop in one line." };
     },
   },
   {
     id: 2,
     category: 'list',
-    title: 'Even Numbers',
-    description: 'Use a list comprehension to build a list of all even numbers from 1 to 20. Store it in a variable called evens.',
-    example: 'evens  →  [2, 4, 6, 8, ..., 20]',
-    hint: '[x for x in range(1, 21) if x % 2 == 0]',
-    starter: '# build the list in one line\nevens = ',
+    title: 'Find by Artist',
+    description: "Write find_by_artist(playlist, artist) that returns a list of song titles by that artist. Use a list comprehension.",
+    example: "find_by_artist(songs, 'Dua Lipa')\n→  ['Levitating']",
+    hint: "[s['title'] for s in playlist if s['artist'] == artist]",
+    starter: "def find_by_artist(playlist, artist):\n    # return a list of song titles by that artist\n    # use a list comprehension\n    pass",
     check: (code) => {
-      if (!/evens\s*=/.test(code))
-        return { pass: false, feedback: 'Store your result in a variable called evens.' };
+      if (!/def\s+find_by_artist\s*\(/.test(code))
+        return { pass: false, feedback: 'Define a function called find_by_artist(playlist, artist).' };
       if (!/\[.*for.*in.*\]/.test(code))
-        return { pass: false, feedback: 'Use a list comprehension: [x for x in range(...) if ...]' };
-      if (!/%\s*2/.test(code))
-        return { pass: false, feedback: 'Filter even numbers with: if x % 2 == 0' };
-      return { pass: true, feedback: 'List comprehensions are faster than a plain for-loop and read like plain English.' };
+        return { pass: false, feedback: "Use a list comprehension: [s['title'] for s in playlist if s['artist'] == artist]" };
+      if (!/if/.test(code))
+        return { pass: false, feedback: "Add a condition to filter: if s['artist'] == artist" };
+      return { pass: true, feedback: "[x for x in items if condition] is one of the most-used patterns in Python — once it clicks, loops that build lists feel slow to write." };
     },
   },
   {
     id: 3,
-    category: 'string',
-    title: 'Reverse a String',
-    description: 'Write a function reverse_str(s) that returns the string in reverse order.',
-    example: 'reverse_str("hello")  →  "olleh"',
-    hint: 'Python slicing trick: s[::-1] walks the string backwards.',
-    starter: 'def reverse_str(s):\n    # write your code here\n    pass',
+    category: 'function',
+    title: 'Sort by Duration',
+    description: "Write sort_by_duration(playlist) that returns the playlist sorted from shortest to longest. Don't use sorted(playlist) directly — Python can't compare dicts.",
+    example: "sort_by_duration(songs)\n→ [shortest song first, ..., longest last]",
+    hint: "sorted(playlist, key=lambda s: s['duration'])",
+    starter: "def sort_by_duration(playlist):\n    # sort songs from shortest to longest\n    # hint: sorted() needs a key= argument here\n    pass",
     check: (code) => {
-      if (!/def\s+reverse_str\s*\(/.test(code))
-        return { pass: false, feedback: 'Define a function called reverse_str(s).' };
-      if (!/return/.test(code))
-        return { pass: false, feedback: 'Return the reversed string!' };
-      if (!(/\[::-1\]/.test(code) || /reversed\(/.test(code)))
-        return { pass: false, feedback: 'Try slicing: return s[::-1]' };
-      return { pass: true, feedback: 's[::-1] means "slice from start to end, step −1" — the most Pythonic reversal trick.' };
+      if (!/def\s+sort_by_duration\s*\(/.test(code))
+        return { pass: false, feedback: 'Define a function called sort_by_duration(playlist).' };
+      if (!/sorted\s*\(/.test(code))
+        return { pass: false, feedback: "Use sorted(playlist, key=...) — don't write a manual sort." };
+      if (!/key\s*=/.test(code))
+        return { pass: false, feedback: "sorted() needs a key= argument to know what to sort by: key=lambda s: s['duration']" };
+      if (!/lambda/.test(code) && !/'duration'/.test(code) && !/"duration"/.test(code))
+        return { pass: false, feedback: "The lambda should access the duration field: lambda s: s['duration']" };
+      return { pass: true, feedback: "key=lambda is the standard pattern for sorting complex objects. You can sort by multiple fields too: key=lambda s: (s['artist'], s['duration'])" };
     },
   },
   {
     id: 4,
-    category: 'loop',
-    title: 'FizzBuzz',
-    description: 'Print numbers 1–15. For multiples of 3 print "Fizz", multiples of 5 print "Buzz", multiples of both print "FizzBuzz".',
-    example: '1, 2, Fizz, 4, Buzz, Fizz ...',
-    hint: 'Check FizzBuzz first (% 15 == 0), then Fizz, then Buzz.',
-    starter: 'for i in range(1, 16):\n    # add your conditions\n    pass',
+    category: 'string',
+    title: 'Format Duration',
+    description: 'Write format_duration(seconds) that converts a number of seconds into "M:SS" format. Use // for whole minutes and % for the remaining seconds.',
+    example: 'format_duration(637)  →  "10:37"\nformat_duration(65)   →  "1:05"',
+    hint: 'minutes = seconds // 60  |  secs = seconds % 60  |  f"{minutes}:{secs:02d}"',
+    starter: 'def format_duration(seconds):\n    # convert to minutes and remaining seconds\n    # return as "M:SS" string\n    pass',
     check: (code) => {
-      if (!/for\s+\w+\s+in\s+range/.test(code))
-        return { pass: false, feedback: 'Use a for loop: for i in range(1, 16).' };
-      if (!/%\s*3/.test(code) || !/%\s*5/.test(code))
-        return { pass: false, feedback: 'Use % 3 and % 5 to check divisibility.' };
-      if (!/Fizz/.test(code) || !/Buzz/.test(code))
-        return { pass: false, feedback: 'Make sure to print both "Fizz" and "Buzz".' };
-      return { pass: true, feedback: 'Order matters! Always check FizzBuzz before Fizz/Buzz, or multiples of 15 get the wrong label.' };
+      if (!/def\s+format_duration\s*\(/.test(code))
+        return { pass: false, feedback: 'Define a function called format_duration(seconds).' };
+      if (!(/\/\//.test(code)))
+        return { pass: false, feedback: 'Use // (floor division) for whole minutes: seconds // 60. Regular / gives a float like 10.616.' };
+      if (!/%/.test(code))
+        return { pass: false, feedback: 'Use % (modulo) for the remaining seconds: seconds % 60.' };
+      if (!/02/.test(code))
+        return { pass: false, feedback: 'Zero-pad the seconds: f"{minutes}:{secs:02d}" — without :02d you get "3:5" instead of "3:05".' };
+      return { pass: true, feedback: ':02d means "integer, minimum 2 digits, zero-padded". The same format spec works for hours, IDs, anything needing consistent width.' };
     },
   },
   {
     id: 5,
-    category: 'dict',
-    title: 'Count Characters',
-    description: 'Write a function char_count(s) that returns a dict with the frequency of each character.',
-    example: 'char_count("hello")\n→ {"h":1,"e":1,"l":2,"o":1}',
-    hint: 'Use counts.get(ch, 0) + 1 to safely increment without a KeyError.',
-    starter: 'def char_count(s):\n    counts = {}\n    for ch in s:\n        # update counts here\n        pass\n    return counts',
+    category: 'loop',
+    title: 'Build a Playlist',
+    description: "Write build_playlist(songs, max_duration) that adds songs one by one — in order — until the next song would push the total over max_duration. Return the songs that fit.",
+    example: 'build_playlist(songs, 400)\n→ songs that fit within 400 seconds total',
+    hint: "Keep a running total. Check: if total + song['duration'] <= max_duration before adding.",
+    starter: "def build_playlist(songs, max_duration):\n    playlist = []\n    total = 0\n    for song in songs:\n        # only add the song if it fits\n        pass\n    return playlist",
     check: (code) => {
-      if (!/def\s+char_count\s*\(/.test(code))
-        return { pass: false, feedback: 'Define a function called char_count(s).' };
-      if (!/for\s+\w+\s+in/.test(code) && !/Counter/.test(code))
-        return { pass: false, feedback: 'Loop over each character with: for ch in s.' };
-      if (!(/\+=/.test(code) || /Counter/.test(code) || /\.get\(/.test(code)))
-        return { pass: false, feedback: 'Increment the count: counts[ch] = counts.get(ch, 0) + 1' };
-      if (!/return/.test(code))
-        return { pass: false, feedback: 'Return the counts dict at the end.' };
-      return { pass: true, feedback: 'dict.get(key, 0) avoids KeyError. For even cleaner code, try: from collections import Counter.' };
+      if (!/def\s+build_playlist\s*\(/.test(code))
+        return { pass: false, feedback: 'Define build_playlist(songs, max_duration).' };
+      if (!/if/.test(code))
+        return { pass: false, feedback: "Add a condition before appending: if total + song['duration'] <= max_duration" };
+      if (!(/\.append\(/.test(code)))
+        return { pass: false, feedback: 'Add matching songs to the playlist: playlist.append(song)' };
+      if (!(/\+=/.test(code) || /total\s*=\s*total/.test(code)))
+        return { pass: false, feedback: "Update the running total after each addition: total += song['duration']" };
+      return { pass: true, feedback: "Accumulate-until-limit is everywhere in real code — shopping carts, pagination, batch jobs. The key is checking BEFORE adding, not after." };
     },
   },
 ];
@@ -247,7 +253,11 @@ const CHALLENGE_CATEGORY_CFG: Record<ChallengeCategory, { label: string; color: 
 
 // ─── Quiz panel ───────────────────────────────────────────────────────────────
 
-function QuizPanel({ currentCode, onLoadStarter }: { currentCode: string; onLoadStarter: (code: string) => void }) {
+function QuizPanel({ currentCode, onLoadStarter, onChallengeChange }: {
+  currentCode: string;
+  onLoadStarter: (code: string) => void;
+  onChallengeChange?: (title: string, description: string) => void;
+}) {
   const [open,      setOpen]      = useState(false);
   const [current,   setCurrent]   = useState(0);
   const [direction, setDirection] = useState(1);   // +1 = forward, -1 = backward
@@ -272,6 +282,14 @@ function QuizPanel({ currentCode, onLoadStarter }: { currentCode: string; onLoad
     if (open) onLoadStarter(CODING_CHALLENGES[current].starter);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
+
+  // Notify parent whenever the active challenge changes so AI gets context
+  useEffect(() => {
+    if (open) {
+      const ch = CODING_CHALLENGES[current];
+      onChallengeChange?.(ch.title, ch.description);
+    }
+  }, [current, open, onChallengeChange]);
 
   const challenge = CODING_CHALLENGES[current];
   const cfg       = CHALLENGE_CATEGORY_CFG[challenge.category];
@@ -501,7 +519,7 @@ function QuizPanel({ currentCode, onLoadStarter }: { currentCode: string; onLoad
 
 type TypingPhase = 'typing' | 'line_done' | 'all_done';
 
-export function CodeEditor({ lines, isTyping, onLineComplete, highlightedLine, editable }: CodeEditorProps) {
+export function CodeEditor({ lines, isTyping, onLineComplete, highlightedLine, editable, onCodeChange, onChallengeChange }: CodeEditorProps) {
   // ── Typing engine state ──────────────────────────────────────────────────────
   const [lineIdx,  setLineIdx]  = useState(0);
   const [charIdx,  setCharIdx]  = useState(0);
@@ -687,7 +705,7 @@ export function CodeEditor({ lines, isTyping, onLineComplete, highlightedLine, e
 
         {/* Quiz floating panel */}
         <div className="relative flex-1 overflow-hidden" style={{ minHeight: 0 }}>
-          <QuizPanel currentCode={editableCode} onLoadStarter={setEditableCode} />
+          <QuizPanel currentCode={editableCode} onLoadStarter={setEditableCode} onChallengeChange={onChallengeChange} />
 
           {/* Editable area — padded top so quiz doesn't overlap first lines */}
           <div className="absolute inset-0 overflow-auto" style={{ paddingTop: 0 }}>
@@ -715,7 +733,7 @@ export function CodeEditor({ lines, isTyping, onLineComplete, highlightedLine, e
               {/* Textarea */}
               <textarea
                 value={editableCode}
-                onChange={e => setEditableCode(e.target.value)}
+                onChange={e => { setEditableCode(e.target.value); onCodeChange?.(e.target.value); }}
                 spellCheck={false}
                 autoFocus
                 placeholder={'# Start coding here...\n'}
