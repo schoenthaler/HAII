@@ -34,7 +34,7 @@ function prepareForSpeech(text: string): string {
 }
 
 const STYLE_PROMPT =
-  'Speak naturally and warmly, like a friendly peer programmer casually explaining a concept. Keep a conversational pace — clear but not slow.';
+  'Read the following in a warm, natural, conversational tone — like a friendly colleague casually explaining something. Clear but not slow:';
 
 // Gemini TTS returns raw 16-bit PCM at 24 kHz. Wrap it in a WAV header so the browser can play it.
 function pcmBase64ToWav(base64: string): Blob {
@@ -105,6 +105,8 @@ export function useGoogleTTS() {
 
     try {
       const text = prepareForSpeech(rawText);
+      // TTS models don't support systemInstruction — embed style as a prefix in the text
+      const styledText = `${STYLE_PROMPT}\n\n${text}`;
       const res = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`,
         {
@@ -112,12 +114,11 @@ export function useGoogleTTS() {
           signal: ctrl.signal,
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            contents: [{ role: 'user', parts: [{ text }] }],
-            systemInstruction: { parts: [{ text: STYLE_PROMPT }] },
+            contents: [{ parts: [{ text: styledText }] }],
             generationConfig: {
-              response_modalities: ['AUDIO'],
-              speech_config: {
-                voice_config: { prebuilt_voice_config: { voice_name: 'Achernar' } },
+              responseModalities: ['AUDIO'],
+              speechConfig: {
+                voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Achernar' } },
               },
             },
           }),
@@ -125,7 +126,11 @@ export function useGoogleTTS() {
       );
 
       if (ctrl.signal.aborted || isMutedRef.current) { setIsSpeaking(false); return; }
-      if (!res.ok) { setIsSpeaking(false); return; }
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        console.error('[GoogleTTS] API error', res.status, err);
+        setIsSpeaking(false); return;
+      }
 
       const json = await res.json();
       const b64 = json?.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
@@ -143,7 +148,10 @@ export function useGoogleTTS() {
       audio.onerror = () => setIsSpeaking(false);
       await audio.play();
     } catch (err: any) {
-      if (err?.name !== 'AbortError') setIsSpeaking(false);
+      if (err?.name !== 'AbortError') {
+        console.error('[GoogleTTS] fetch error', err);
+        setIsSpeaking(false);
+      }
     }
   }, [cleanup]);
 

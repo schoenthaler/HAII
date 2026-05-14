@@ -11,7 +11,6 @@ interface Message {
   type: 'ai' | 'user';
   content: string;
   timestamp: string;
-  badge?: 'error' | 'optimize' | 'warning' | 'teach';
   lineNumbers?: number[];
 }
 
@@ -137,8 +136,8 @@ export default function App() {
   // ── Skeleton mode has its own independent chat history ───────────────────────
   const [skeletonMessages, setSkeletonMessages] = useState<Message[]>([]);
 
-  function addAI(content: string, badge?: Message['badge'], lineNumbers?: number[]) {
-    setMessages((m) => [...m, { type: 'ai', content, timestamp: now(), badge, lineNumbers }]);
+  function addAI(content: string, lineNumbers?: number[]) {
+    setMessages((m) => [...m, { type: 'ai', content, timestamp: now(), lineNumbers }]);
   }
 
   // ── Line-complete callback from CodeEditor ────────────────────────────────────
@@ -152,33 +151,33 @@ export default function App() {
       // L1 — def total_duration
       0: () => setTimeout(() => addAI(
         "Each song is a dict with fields like title, artist, and duration. This list-of-dicts pattern is how Python stores a table of records.",
-        'teach', [1]), 500),
+        [1]), 500),
 
       // L4 — total = total + song['duration']
       3: () => setTimeout(() => addAI(
         "This works, but total plus-equals does the same thing shorter. The bracket notation looks up the duration key inside each song dict.",
-        'optimize', [4]), 500),
+        [4]), 500),
 
       // L7 — def find_by_artist
       6: () => setTimeout(() => addAI(
         "Second function — find songs by artist. Watch the return line for a one-liner version of this whole loop.",
-        'teach', [7]), 500),
+        [7]), 500),
 
       // L12 — return result (end of find_by_artist loop)
       11: () => setTimeout(() => addAI(
         "That whole loop is one line as a list comprehension. Once the pattern clicks, writing it the long way starts to feel slow.",
-        'teach', [8, 9, 10, 11, 12]), 500),
+        [8, 9, 10, 11, 12]), 500),
 
       // L14 — def sort_by_duration
       13: () => setTimeout(() => addAI(
         "Third function — sort by duration. Before reading the next line: can Python compare two dicts directly?",
-        'teach', [14]), 500),
+        [14]), 500),
 
       // L15 — return sorted(playlist)  →  bug + voice demo
       14: () => {
         setTimeout(() => addAI(
           "sorted(playlist) raises a TypeError — Python can't compare dicts directly. The fix is sorted(playlist, key=lambda s: s duration), which tells Python to sort by the duration field.",
-          'error', [15]), 500);
+          [15]), 500);
 
         setTimeout(() => {
           setIsVoiceActive(true);
@@ -193,7 +192,7 @@ export default function App() {
             setIsThinking(false);
             addAI(
               "A lambda is just a function with no name — lambda s: s duration does exactly the same thing as writing a regular def function that returns the duration field. It's shorthand for when you only need the function in one place.",
-              undefined, [15]);
+              [15]);
             setTimeout(() => { setIsVoiceActive(false); setIsTyping(true); }, 2000);
           }, 1700);
         }, 1200);
@@ -202,22 +201,22 @@ export default function App() {
       // L18 — minutes = seconds / 60
       17: () => setTimeout(() => addAI(
         "In Python 3, a single slash always returns a float — 637 divided by 60 gives 10.6, not 10. Use double slash for whole minutes.",
-        'error', [18]), 500),
+        [18]), 500),
 
       // L20 — return f"{minutes}:{secs}"
       19: () => setTimeout(() => addAI(
         'Single-digit seconds will print as "3:5" instead of "3:05". Adding colon-zero-2-d inside the curly braces tells Python to zero-pad to at least 2 digits.',
-        'error', [18, 20]), 500),
+        [18, 20]), 500),
 
       // L27 — total = total_duration(songs)
       26: () => setTimeout(() => addAI(
         "total is now 637 seconds — the sum of all three song durations. That's what format_duration needs to turn into a readable time string.",
-        'teach', [27]), 500),
+        [27]), 500),
 
       // L28 — final print
       27: () => setTimeout(() => addAI(
         "Three bugs to fix: sorted needs key equals lambda, the single slash needs double slash, and the f-string needs colon-zero-2-d on both values.",
-        'teach', [15, 18, 20]), 500),
+        [15, 18, 20]), 500),
     };
 
     triggers[lineIdx]?.();
@@ -240,7 +239,7 @@ export default function App() {
 
     const reply = await sendToAI(contextualMessage);
     setIsThinking(false);
-    setMessages((m) => [...m, { type: 'ai', content: reply, timestamp: now(), badge: 'teach' }]);
+    setMessages((m) => [...m, { type: 'ai', content: reply, timestamp: now() }]);
     speak(reply);
   }, [sendToAI, speak, stopSpeaking]);
 
