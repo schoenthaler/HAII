@@ -554,18 +554,6 @@ export function CodeEditor({ lines, isTyping, onLineComplete, highlightedLine, e
     el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }, [highlightedLine]);
 
-  // ── Filter toggles ───────────────────────────────────────────────────────────
-  const [activeFilters, setActiveFilters] = useState<Set<AnnotationType>>(
-    new Set(['teach', 'error', 'optimize', 'warning'])
-  );
-  function toggleFilter(type: AnnotationType) {
-    setActiveFilters(prev => {
-      const next = new Set(prev);
-      next.has(type) ? next.delete(type) : next.add(type);
-      return next;
-    });
-  }
-
   // ── Tooltip ──────────────────────────────────────────────────────────────────
   const [tooltip,   setTooltip]   = useState<TooltipState | null>(null);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -579,13 +567,6 @@ export function CodeEditor({ lines, isTyping, onLineComplete, highlightedLine, e
   const cancelHide = useCallback(() => {
     if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
   }, []);
-
-  // Hide tooltip when its filter is toggled off
-  useEffect(() => {
-    if (!tooltip) return;
-    const line = lines.find(l => l.number === tooltip.lineNumber);
-    if (line?.annotation && !activeFilters.has(line.annotationType ?? 'teach')) setTooltip(null);
-  }, [activeFilters, tooltip, lines]);
 
   // ── Core typing engine ───────────────────────────────────────────────────────
   useEffect(() => {
@@ -644,7 +625,7 @@ export function CodeEditor({ lines, isTyping, onLineComplete, highlightedLine, e
   const visibleLines = lines.slice(0, lineIdx + 1).map((line, idx) => {
     const isCurrent        = idx === lineIdx;
     const displayContent   = isCurrent ? line.content.slice(0, charIdx) : line.content;
-    const hasAnnotation    = !!line.annotation && activeFilters.has(line.annotationType ?? 'teach');
+    const hasAnnotation    = !!line.annotation;
     const showAnnotationDot = hasAnnotation && annotationVisible.has(idx); // dot + colour only after line fully typed
     const showTooltipable   = showAnnotationDot;
     return { line, displayContent, isCurrent, showAnnotationDot, showTooltipable };
@@ -657,8 +638,7 @@ export function CodeEditor({ lines, isTyping, onLineComplete, highlightedLine, e
   const tooltipVisible =
     !!tooltip &&
     !!tooltipLine?.annotation &&
-    annotationVisible.has(lines.indexOf(tooltipLine)) &&
-    activeFilters.has(tooltipLine.annotationType ?? 'teach');
+    annotationVisible.has(lines.indexOf(tooltipLine));
 
   // ── Render ───────────────────────────────────────────────────────────────────
 
@@ -686,20 +666,6 @@ export function CodeEditor({ lines, isTyping, onLineComplete, highlightedLine, e
             >
               ✏️ EDITABLE
             </span>
-          </div>
-          {/* dimmed filter badges */}
-          <div className="flex items-center gap-2 opacity-25 pointer-events-none select-none">
-            {(Object.entries(ANNOTATION_CONFIG) as [AnnotationType, typeof ANNOTATION_CONFIG[AnnotationType]][]).map(([type, cfg]) => (
-              <div
-                key={type}
-                className="flex items-center gap-1.5 px-2 py-1 rounded"
-                style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}
-              >
-                <span className="text-[10px] font-['DM_Sans'] font-semibold" style={{ color: '#6b7a8d' }}>
-                  {cfg.icon} {cfg.label}
-                </span>
-              </div>
-            ))}
           </div>
         </div>
 
@@ -785,28 +751,6 @@ export function CodeEditor({ lines, isTyping, onLineComplete, highlightedLine, e
           <div className="w-3 h-3 rounded-full bg-[#ffbd2e]" />
           <div className="w-3 h-3 rounded-full bg-[#27c93f]" />
           <span className="ml-3 text-[#8b9bb4] text-sm">main.py</span>
-        </div>
-        {/* Filter toggles */}
-        <div className="flex items-center gap-2">
-          {(Object.entries(ANNOTATION_CONFIG) as [AnnotationType, typeof ANNOTATION_CONFIG[AnnotationType]][]).map(([type, cfg]) => {
-            const active = activeFilters.has(type);
-            return (
-              <button
-                key={type}
-                onClick={() => toggleFilter(type)}
-                className="flex items-center gap-1.5 px-2 py-1 rounded transition-all duration-150 cursor-pointer select-none"
-                style={{ background: active ? cfg.badgeBg : 'rgba(255,255,255,0.03)', border:`1px solid ${active ? cfg.color+'55' : 'rgba(255,255,255,0.07)'}`, opacity: active ? 1 : 0.4 }}
-              >
-                <span className="flex items-center justify-center w-3.5 h-3.5 rounded-sm flex-shrink-0 transition-all duration-150"
-                  style={{ background: active ? cfg.color : 'transparent', border:`1.5px solid ${active ? cfg.color : '#4a5568'}` }}>
-                  {active && <svg width="8" height="8" viewBox="0 0 8 8" fill="none"><path d="M1 4l2 2 4-4" stroke="#0f141f" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
-                </span>
-                <span className="text-[10px] font-['DM_Sans'] font-semibold" style={{ color: active ? cfg.color : '#6b7a8d' }}>
-                  {cfg.icon} {cfg.label}
-                </span>
-              </button>
-            );
-          })}
         </div>
       </div>
 

@@ -1,14 +1,13 @@
 import { motion, AnimatePresence } from 'motion/react';
 import { VoiceVisualizer } from './VoiceVisualizer';
 import { useSpeechRecognition } from './useSpeechRecognition';
-import { Mic, Brain, Volume2, VolumeX, Send, X } from 'lucide-react';
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { Mic, Brain, Volume2, VolumeX, X } from 'lucide-react';
+import { useEffect, useRef, useCallback } from 'react';
 
 interface Message {
   type: 'ai' | 'user';
   content: string;
   timestamp: string;
-  badge?: 'error' | 'optimize' | 'warning' | 'teach';
   lineNumbers?: number[];
 }
 
@@ -33,8 +32,6 @@ export function AITeachingPanel({
   onSendMessage,
   onLineClick,
 }: AITeachingPanelProps) {
-  const [inputText, setInputText] = useState('');
-  const [isInputFocused, setIsInputFocused] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
 
@@ -58,35 +55,13 @@ export function AITeachingPanel({
     }
   };
 
-  // "Active" = real voice detected OR demo voice animation OR user is typing
-  const isUserActive = isVoiceActive || isListening || inputText.length > 0 || isInputFocused;
+  const isUserActive = isVoiceActive || isListening;
 
   useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages]);
-
-  const handleSend = () => {
-    if (inputText.trim() && onSendMessage) {
-      onSendMessage(inputText.trim());
-      setInputText('');
-    }
-  };
-
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
-  };
-
-  const BADGE_CONFIG = {
-    error:    { label: '🐛 ERROR',    color: '#f87171', bg: 'rgba(248,113,113,0.15)' },
-    optimize: { label: '⚡ OPTIMIZE', color: '#22d3ee', bg: 'rgba(34,211,238,0.15)' },
-    warning:  { label: '⚠️ WARNING',  color: '#fbbf24', bg: 'rgba(251,191,36,0.15)' },
-    teach:    { label: '💡 HINT',     color: '#ffa94d', bg: 'rgba(255,169,77,0.15)' },
-  };
 
   return (
     <div
@@ -426,17 +401,6 @@ export function AITeachingPanel({
                       : 'bg-[#22d3ee]/10 border border-[#22d3ee]/30'
                   }`}
                 >
-                  {message.badge && message.type === 'ai' && (() => {
-                    const b = BADGE_CONFIG[message.badge];
-                    return (
-                      <span
-                        className="inline-block text-[10px] font-['DM_Sans'] font-semibold px-1.5 py-0.5 rounded mb-2"
-                        style={{ color: b.color, background: b.bg }}
-                      >
-                        {b.label}
-                      </span>
-                    );
-                  })()}
                   <p className="text-[#e2e8f0] text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
 
                   {message.type === 'ai' && message.lineNumbers && message.lineNumbers.length > 0 && (
@@ -496,30 +460,6 @@ export function AITeachingPanel({
             <div ref={messagesEndRef} />
           </div>
         )}
-      </div>
-
-      {/* ── Text Input ── */}
-      <div className="bg-[#1a1f2e] px-4 py-3 border-t border-[#2a3f5f] flex-shrink-0">
-        <div className="flex items-center gap-2">
-          <input
-            type="text"
-            value={inputText}
-            onChange={(e) => setInputText(e.target.value)}
-            onKeyDown={handleKeyPress}
-            onFocus={() => setIsInputFocused(true)}
-            onBlur={() => setIsInputFocused(false)}
-            placeholder="Type your question or use voice..."
-            className="flex-1 bg-[#0f141f] text-[#e2e8f0] placeholder:text-[#8b9bb4] px-3 py-2 rounded-lg border border-[#2a3f5f] focus:border-[#ff9d3d] focus:outline-none text-sm font-['DM_Sans'] transition-colors"
-          />
-          <motion.button
-            onClick={handleSend}
-            disabled={!inputText.trim()}
-            className="px-3 py-2 bg-[#ff9d3d] text-[#0f141f] rounded-lg disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[#ffa94d] transition-colors"
-            whileTap={{ scale: 0.95 }}
-          >
-            <Send className="w-4 h-4" />
-          </motion.button>
-        </div>
       </div>
 
       {/* ── Teaching Tips ── */}
