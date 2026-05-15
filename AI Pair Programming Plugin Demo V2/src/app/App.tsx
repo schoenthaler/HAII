@@ -16,78 +16,79 @@ interface Message {
 
 // ─── Code script ──────────────────────────────────────────────────────────────
 
-// ─── Scenario 1: Playlist Duration Analyzer ───────────────────────────────────
+// ─── Demo: Movie Runtime Analyzer ─────────────────────────────────────────────
+// Same concepts as the skeleton exercises, different domain so users can't copy.
 // Optimize: total = total + ... → += (L4)
 // Teach:    list-of-dicts pattern (L1), list comprehension (L12), lambda (L15)
-// Bug:      sorted(playlist) → TypeError, needs key=lambda (L15)
-// Bug:      seconds / 60 → float, needs // floor division (L18)
-// Bug:      f"{minutes}:{secs}" → missing :02d zero-padding (L20)
+// Bug:      sorted(movies) → TypeError, needs key=lambda (L15)
+// Bug:      minutes / 60 → float, needs // floor division (L18)
+// Bug:      f"{hours}:{mins}" → missing :02d zero-padding (L20)
 
 const codeLines: CodeLine[] = [
   {
-    number: 1, content: 'def total_duration(playlist):',
+    number: 1, content: 'def total_runtime(movies):',
     annotationType: 'teach',
-    annotation: "The parameter `playlist` is a list of dicts — each dict is one song: {'title': 'Blinding Lights', 'duration': 200}. This list-of-dicts pattern is how Python represents a table of records. The function name tells you exactly what shape of data to pass in.",
+    annotation: "The parameter `movies` is a list of dicts — each dict is one film: {'title': 'Inception', 'runtime': 148}. This list-of-dicts pattern is how Python represents any table of records. The function name tells you exactly what shape of data to pass in.",
   },
   { number: 2, content: '    total = 0' },
-  { number: 3, content: '    for song in playlist:' },
+  { number: 3, content: '    for film in movies:' },
   {
-    number: 4, content: "        total = total + song['duration']",
+    number: 4, content: "        total = total + film['runtime']",
     annotationType: 'optimize',
-    annotation: "`total += song['duration']` means exactly the same thing, shorter. The bracket notation — `song['duration']` — looks up the 'duration' key inside each song dict. You'll write this any time you're looping over a list of records.",
+    annotation: "`total += film['runtime']` means exactly the same thing, shorter. The bracket notation — `film['runtime']` — looks up the 'runtime' key inside each film dict. You'll write this any time you're summing a field across a list of records.",
   },
   { number: 5, content: '    return total' },
   { number: 6, content: '' },
   {
-    number: 7, content: 'def find_by_artist(playlist, artist):',
+    number: 7, content: 'def find_by_director(movies, director):',
     annotationType: 'teach',
-    annotation: "Second function — search songs by artist. Notice the pattern coming: empty list, loop, condition, append. This is so common in Python that there's a one-liner for it. Watch the return line.",
+    annotation: "Second function — find films by director. Notice the pattern coming: empty list, loop, condition, append. This is so common in Python that there's a one-liner for it. Watch the return line.",
   },
   { number: 8, content: '    result = []' },
-  { number: 9, content: '    for song in playlist:' },
-  { number: 10, content: "        if song['artist'] == artist:" },
-  { number: 11, content: "            result.append(song['title'])" },
+  { number: 9, content: '    for film in movies:' },
+  { number: 10, content: "        if film['director'] == director:" },
+  { number: 11, content: "            result.append(film['title'])" },
   {
     number: 12, content: '    return result',
     annotationType: 'teach',
-    annotation: "Those four lines — empty list, loop, condition, append — collapse into one: `[s['title'] for s in playlist if s['artist'] == artist]`. That's a list comprehension. Same output, less code, and once the pattern clicks it reads like plain English.",
+    annotation: "Those four lines — empty list, loop, condition, append — collapse into one: `[f['title'] for f in movies if f['director'] == director]`. That's a list comprehension. Same output, less code, and once the pattern clicks it reads like plain English.",
   },
   { number: 13, content: '' },
   {
-    number: 14, content: 'def sort_by_duration(playlist):',
+    number: 14, content: 'def sort_by_length(movies):',
     annotationType: 'teach',
-    annotation: "Third function — sort songs from shortest to longest. Before reading the next line, think: can Python compare two dicts directly? What would `sorted(playlist)` actually do with a list of dicts?",
+    annotation: "Third function — sort films from shortest to longest. Before reading the next line, think: can Python compare two dicts directly? What would `sorted(movies)` actually do with a list of dicts?",
   },
   {
-    number: 15, content: '    return sorted(playlist)',
+    number: 15, content: '    return sorted(movies)',
     annotationType: 'error',
-    annotation: "🐛 This raises a TypeError at runtime — Python can't compare two dicts directly, so it doesn't know what order to put them in. Fix: `sorted(playlist, key=lambda s: s['duration'])`. The lambda tells Python which field to use for ordering.",
+    annotation: "🐛 This raises a TypeError at runtime — Python can't compare two dicts directly, so it doesn't know what order to put them in. Fix: `sorted(movies, key=lambda f: f['runtime'])`. The lambda tells Python which field to use for ordering.",
   },
   { number: 16, content: '' },
-  { number: 17, content: 'def format_duration(seconds):' },
+  { number: 17, content: 'def format_runtime(minutes):' },
   {
-    number: 18, content: '    minutes = seconds / 60',
+    number: 18, content: '    hours = minutes / 60',
     annotationType: 'error',
-    annotation: "🐛 `/` in Python 3 always returns a float — 637 / 60 gives 10.616..., not 10. For whole minutes use `//` (floor division): 637 // 60 is 10. This is one of Python 3's most common surprises for people coming from other languages.",
+    annotation: "🐛 `/` in Python 3 always returns a float — 148 / 60 gives 2.466..., not 2. For whole hours use `//` (floor division): 148 // 60 is 2. This is one of Python 3's most common surprises.",
   },
-  { number: 19, content: '    secs = seconds % 60' },
+  { number: 19, content: '    mins = minutes % 60' },
   {
-    number: 20, content: '    return f"{minutes}:{secs}"',
+    number: 20, content: '    return f"{hours}:{mins}"',
     annotationType: 'error',
-    annotation: '🐛 Two issues: `minutes` is still a float (from line 18), and single-digit seconds display as "3:5" not "3:05". Fix both: `//` on line 18, then `f"{minutes:02d}:{secs:02d}"`. The `:02d` means "integer, minimum 2 digits, zero-padded".',
+    annotation: '🐛 Two issues: `hours` is still a float (from line 18), and single-digit minutes display as "2:8" not "2:08". Fix both: `//` on line 18, then `f"{hours:02d}:{mins:02d}"`. The `:02d` means "integer, minimum 2 digits, zero-padded".',
   },
   { number: 21, content: '' },
-  { number: 22, content: 'songs = [' },
-  { number: 23, content: "    {'title': 'Blinding Lights', 'artist': 'The Weeknd', 'duration': 200}," },
-  { number: 24, content: "    {'title': 'Shape of You', 'artist': 'Ed Sheeran', 'duration': 234}," },
-  { number: 25, content: "    {'title': 'Levitating', 'artist': 'Dua Lipa', 'duration': 203}," },
+  { number: 22, content: 'films = [' },
+  { number: 23, content: "    {'title': 'Inception', 'director': 'Christopher Nolan', 'runtime': 148}," },
+  { number: 24, content: "    {'title': 'Parasite', 'director': 'Bong Joon-ho', 'runtime': 132}," },
+  { number: 25, content: "    {'title': 'Interstellar', 'director': 'Christopher Nolan', 'runtime': 169}," },
   { number: 26, content: ']' },
   {
-    number: 27, content: 'total = total_duration(songs)',
+    number: 27, content: 'total = total_runtime(films)',
     annotationType: 'teach',
-    annotation: "Calling the function with real data — `total` is now 637, the sum of all three durations in seconds. That's what format_duration will turn into a readable time string. Try working out in your head what it should give back.",
+    annotation: "Calling the function with real data — `total` is now 449, the sum of all three runtimes in minutes. That's what format_runtime will turn into a readable time string. Work out in your head what it should give back.",
   },
-  { number: 28, content: 'print(f"Playlist: {len(songs)} songs, {format_duration(total)}")' },
+  { number: 28, content: 'print(f"Library: {len(films)} films, {format_runtime(total)} total")' },
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -108,7 +109,7 @@ export default function App() {
   const [showSkeleton, setShowSkeleton] = useState(false);
 
   const { sendMessage: sendToAI, resetHistory } = useAIChat();
-  const { isSpeaking: ttsIsSpeaking, isMuted, speak, stop: stopSpeaking, toggleMute } = useGoogleTTS();
+  const { isSpeaking: ttsIsSpeaking, isMuted, speak, stop: stopSpeaking, toggleMute, prefetch } = useGoogleTTS();
 
   // Tracks which codeLines index has been reached so we can give the AI code context
   const currentLineIdxRef = useRef(-1);
@@ -128,7 +129,7 @@ export default function App() {
     {
       type: 'ai',
       content:
-        "Hey! I'm your AI pair programming partner. We're building a Playlist Duration Analyzer — Python functions that work with a list of song dicts. I'll call out bugs, suggest improvements, and explain the why. Ask me anything.",
+        "Hey! I'm your AI pair programming partner. We're building a Movie Runtime Analyzer — Python functions that work with a list of film dicts. I'll call out bugs, suggest improvements, and explain the why. Ask me anything.",
       timestamp: '10:30 AM',
     },
   ]);
@@ -148,35 +149,35 @@ export default function App() {
 
     const triggers: Record<number, () => void> = {
 
-      // L1 — def total_duration
+      // L1 — def total_runtime
       0: () => setTimeout(() => addAI(
-        "Each song is a dict with fields like title, artist, and duration. This list-of-dicts pattern is how Python stores a table of records.",
+        "Each film is a dict with fields like title, director, and runtime. This list-of-dicts pattern is how Python stores any table of records — same idea as a spreadsheet row.",
         [1]), 500),
 
-      // L4 — total = total + song['duration']
+      // L4 — total = total + film['runtime']
       3: () => setTimeout(() => addAI(
-        "This works, but total plus-equals does the same thing shorter. The bracket notation looks up the duration key inside each song dict.",
+        "This works, but total plus-equals does the same thing shorter. The bracket notation looks up the runtime key inside each film dict — you'll use this any time you're pulling a field out of a dict.",
         [4]), 500),
 
-      // L7 — def find_by_artist
+      // L7 — def find_by_director
       6: () => setTimeout(() => addAI(
-        "Second function — find songs by artist. Watch the return line for a one-liner version of this whole loop.",
+        "Second function — find films by director. Watch the return line — this whole loop collapses into one line.",
         [7]), 500),
 
-      // L12 — return result (end of find_by_artist loop)
+      // L12 — return result (end of find_by_director loop)
       11: () => setTimeout(() => addAI(
-        "That whole loop is one line as a list comprehension. Once the pattern clicks, writing it the long way starts to feel slow.",
+        "That whole loop — empty list, for, if, append — is one line as a list comprehension. Same output, and once the pattern clicks it reads like plain English.",
         [8, 9, 10, 11, 12]), 500),
 
-      // L14 — def sort_by_duration
+      // L14 — def sort_by_length
       13: () => setTimeout(() => addAI(
-        "Third function — sort by duration. Before reading the next line: can Python compare two dicts directly?",
+        "Third function — sort by runtime. Before reading the next line: can Python compare two dicts directly to decide which comes first?",
         [14]), 500),
 
-      // L15 — return sorted(playlist)  →  bug + voice demo
+      // L15 — return sorted(movies)  →  bug + voice demo
       14: () => {
         setTimeout(() => addAI(
-          "sorted(playlist) raises a TypeError — Python can't compare dicts directly. The fix is sorted(playlist, key=lambda s: s duration), which tells Python to sort by the duration field.",
+          "sorted(movies) raises a TypeError — Python can't compare two dicts, so it doesn't know what order to put them in. The fix is sorted(movies, key=lambda f: f runtime), which tells Python to sort by the runtime field.",
           [15]), 500);
 
         setTimeout(() => {
@@ -191,26 +192,26 @@ export default function App() {
           setTimeout(() => {
             setIsThinking(false);
             addAI(
-              "A lambda is just a function with no name — lambda s: s duration does exactly the same thing as writing a regular def function that returns the duration field. It's shorthand for when you only need the function in one place.",
+              "A lambda is just a function with no name — lambda f: f runtime does exactly the same thing as writing a regular def function that returns the runtime field. It's shorthand for when you only need the function in one place.",
               [15]);
             setTimeout(() => { setIsVoiceActive(false); setIsTyping(true); }, 2000);
           }, 1700);
         }, 1200);
       },
 
-      // L18 — minutes = seconds / 60
+      // L18 — hours = minutes / 60
       17: () => setTimeout(() => addAI(
-        "In Python 3, a single slash always returns a float — 637 divided by 60 gives 10.6, not 10. Use double slash for whole minutes.",
+        "In Python 3, a single slash always returns a float — 148 divided by 60 gives 2.46, not 2. Use double slash for whole hours.",
         [18]), 500),
 
-      // L20 — return f"{minutes}:{secs}"
+      // L20 — return f"{hours}:{mins}"
       19: () => setTimeout(() => addAI(
-        'Single-digit seconds will print as "3:5" instead of "3:05". Adding colon-zero-2-d inside the curly braces tells Python to zero-pad to at least 2 digits.',
+        'Single-digit minutes will print as "2:8" instead of "2:08". Adding colon-zero-2-d inside the curly braces tells Python to zero-pad to at least 2 digits.',
         [18, 20]), 500),
 
-      // L27 — total = total_duration(songs)
+      // L27 — total = total_runtime(films)
       26: () => setTimeout(() => addAI(
-        "total is now 637 seconds — the sum of all three song durations. That's what format_duration needs to turn into a readable time string.",
+        "total is now 449 — the sum of all three runtimes in minutes. That's what format_runtime needs to turn into a readable hours-and-minutes string.",
         [27]), 500),
 
       // L28 — final print
@@ -259,10 +260,16 @@ export default function App() {
     setIsThinking(false);
     setSkeletonMessages((m) => [
       ...m,
-      { type: 'ai', content: reply, timestamp: now(), badge: 'teach' },
+      { type: 'ai', content: reply, timestamp: now() },
     ]);
     speak(reply);
   }, [sendToAI, speak, stopSpeaking]);
+
+  // ── Quiz pass feedback → speak + show in chat ─────────────────────────────────
+  const handlePassFeedback = useCallback((text: string) => {
+    setSkeletonMessages((m) => [...m, { type: 'ai', content: text, timestamp: now() }]);
+    speak(text);
+  }, [speak]);
 
   // Reset AI history when returning to welcome screen
   const handleQuit = () => {
@@ -372,6 +379,8 @@ export default function App() {
                   highlightedLine={highlightedLine}
                   onCodeChange={(code) => { skeletonCodeRef.current = code; }}
                   onChallengeChange={(title, description) => { skeletonChallengeRef.current = { title, description }; }}
+                  onPassFeedback={handlePassFeedback}
+                  onPrefetchFeedback={prefetch}
                 />
               </div>
             </motion.div>

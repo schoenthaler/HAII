@@ -65,6 +65,37 @@ function pcmBase64ToWav(base64: string): Blob {
   return new Blob([buf], { type: 'audio/wav' });
 }
 
+async function fetchTTSBlob(rawText: string, signal: AbortSignal, apiKey: string): Promise<Blob | null> {
+  const text = prepareForSpeech(rawText);
+  const styledText = `${STYLE_PROMPT}\n\n${text}`;
+
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`,
+    {
+      method: 'POST',
+      signal,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: styledText }] }],
+        generationConfig: {
+          responseModalities: ['AUDIO'],
+          speechConfig: {
+            voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Achernar' } },
+          },
+        },
+      }),
+    }
+  );
+
+  if (signal.aborted || !res.ok) return null;
+
+  const json = await res.json();
+  const b64 = json?.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+  if (!b64 || signal.aborted) return null;
+
+  return pcmBase64ToWav(b64);
+}
+
 export function useGoogleTTS() {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
@@ -72,6 +103,8 @@ export function useGoogleTTS() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const urlRef = useRef<string | null>(null);
+  // Cache blobs keyed by raw text so prefetched audio plays instantly
+  const cacheRef = useRef<Map<string, Blob>>(new Map());
 
   const cleanup = useCallback(() => {
     abortRef.current?.abort();
@@ -104,44 +137,17 @@ export function useGoogleTTS() {
     setIsSpeaking(true);
 
     try {
-      const text = prepareForSpeech(rawText);
-      // TTS models don't support systemInstruction — embed style as a prefix in the text
-      const styledText = `${STYLE_PROMPT}\n\n${text}`;
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`,
-        {
-          method: 'POST',
-          signal: ctrl.signal,
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: styledText }] }],
-            generationConfig: {
-              responseModalities: ['AUDIO'],
-              speechConfig: {
-                voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Achernar' } },
-              },
-            },
-          }),
-        }
-      );
-
-      if (ctrl.signal.aborted || isMutedRef.current) { setIsSpeaking(false); return; }
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        console.error('[GoogleTTS] API error', res.status, err);
-        setIsSpeaking(false); return;
+      let blob = cacheRef.current.get(rawText) ?? null;
+      if (!blob) {
+        blob = await fetchTTSBlob(rawText, ctrl.signal, apiKey);
       }
 
-      const json = await res.json();
-      const b64 = json?.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-      if (!b64 || ctrl.signal.aborted || isMutedRef.current) { setIsSpeaking(false); return; }
+      if (!blob || ctrl.signal.aborted || isMutedRef.current) { setIsSpeaking(false); return; }
 
-      const blob = pcmBase64ToWav(b64);
       const url = URL.createObjectURL(blob);
       urlRef.current = url;
 
       const audio = new Audio(url);
-      // Slight speed-up for natural conversational pacing without sacrificing clarity
       audio.playbackRate = 1.15;
       audioRef.current = audio;
       audio.onended = () => { URL.revokeObjectURL(url); urlRef.current = null; setIsSpeaking(false); };
@@ -155,6 +161,21 @@ export function useGoogleTTS() {
     }
   }, [cleanup]);
 
+  // Pre-fetch and cache audio for a text string without playing it.
+  // Call this when a challenge loads so audio is ready when the user passes.
+  const prefetch = useCallback(async (rawText: string) => {
+    if (cacheRef.current.has(rawText)) return;
+    const apiKey = (import.meta as any).env?.VITE_GEMINI_API_KEY;
+    if (!apiKey) return;
+    const ctrl = new AbortController();
+    try {
+      const blob = await fetchTTSBlob(rawText, ctrl.signal, apiKey);
+      if (blob) cacheRef.current.set(rawText, blob);
+    } catch {
+      // prefetch failures are silent — speak() will fetch on demand if needed
+    }
+  }, []);
+
   const toggleMute = useCallback(() => {
     const next = !isMutedRef.current;
     isMutedRef.current = next;
@@ -162,5 +183,5 @@ export function useGoogleTTS() {
     if (next) { cleanup(); setIsSpeaking(false); }
   }, [cleanup]);
 
-  return { isSpeaking, isMuted, speak, stop, toggleMute };
+  return { isSpeaking, isMuted, speak, stop, toggleMute, prefetch };
 }
