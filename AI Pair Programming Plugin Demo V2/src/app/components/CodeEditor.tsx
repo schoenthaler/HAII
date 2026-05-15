@@ -22,6 +22,8 @@ interface CodeEditorProps {
   editable?: boolean;          // true = let user type freely
   onCodeChange?: (code: string) => void;
   onChallengeChange?: (title: string, description: string) => void;
+  onPassFeedback?: (text: string) => void;
+  onPrefetchFeedback?: (text: string) => void;
 }
 
 // ─── Annotation config ────────────────────────────────────────────────────────
@@ -141,6 +143,7 @@ interface CodingChallenge {
   example?: string;
   hint: string;
   starter: string;
+  successFeedback: string;
   check: (code: string) => { pass: boolean; feedback: string };
 }
 
@@ -153,13 +156,16 @@ const CODING_CHALLENGES: CodingChallenge[] = [
     example: "total_duration([\n  {'title': 'Song A', 'duration': 180},\n  {'title': 'Song B', 'duration': 240}\n])  →  420",
     hint: "Loop and add up song['duration'] for each song. Or: sum(s['duration'] for s in playlist)",
     starter: "def total_duration(playlist):\n    # loop and sum the 'duration' field from each song\n    pass",
+    successFeedback: "Alternatively: sum(s['duration'] for s in playlist) — a generator expression that replaces the whole loop in one line.",
     check: (code) => {
       if (!/def\s+total_duration\s*\(/.test(code))
         return { pass: false, feedback: 'Define a function called total_duration(playlist).' };
+      if (!/in\s+playlist/.test(code))
+        return { pass: false, feedback: 'Loop over the playlist parameter: for song in playlist' };
+      if (!(/\['duration'\]/.test(code) || /\["duration"\]/.test(code)))
+        return { pass: false, feedback: "Access the duration field with: song['duration']" };
       if (!/return/.test(code))
         return { pass: false, feedback: 'Return the total at the end.' };
-      if (!(/\['duration'\]/.test(code) || /\["duration"\]/.test(code) || /sum/.test(code)))
-        return { pass: false, feedback: "Access the duration field with: song['duration']" };
       return { pass: true, feedback: "Alternatively: sum(s['duration'] for s in playlist) — a generator expression that replaces the whole loop in one line." };
     },
   },
@@ -171,13 +177,16 @@ const CODING_CHALLENGES: CodingChallenge[] = [
     example: "find_by_artist(songs, 'Dua Lipa')\n→  ['Levitating']",
     hint: "[s['title'] for s in playlist if s['artist'] == artist]",
     starter: "def find_by_artist(playlist, artist):\n    # return a list of song titles by that artist\n    # use a list comprehension\n    pass",
+    successFeedback: "[x for x in items if condition] is one of the most-used patterns in Python — once it clicks, loops that build lists feel slow to write.",
     check: (code) => {
       if (!/def\s+find_by_artist\s*\(/.test(code))
         return { pass: false, feedback: 'Define a function called find_by_artist(playlist, artist).' };
       if (!/\[.*for.*in.*\]/.test(code))
         return { pass: false, feedback: "Use a list comprehension: [s['title'] for s in playlist if s['artist'] == artist]" };
-      if (!/if/.test(code))
-        return { pass: false, feedback: "Add a condition to filter: if s['artist'] == artist" };
+      if (!(/\['artist'\]/.test(code) || /\["artist"\]/.test(code)) || !/==\s*artist/.test(code))
+        return { pass: false, feedback: "Filter by the artist parameter: if s['artist'] == artist" };
+      if (!(/\['title'\]/.test(code) || /\["title"\]/.test(code)))
+        return { pass: false, feedback: "Return the song's title: s['title']" };
       return { pass: true, feedback: "[x for x in items if condition] is one of the most-used patterns in Python — once it clicks, loops that build lists feel slow to write." };
     },
   },
@@ -189,6 +198,7 @@ const CODING_CHALLENGES: CodingChallenge[] = [
     example: "sort_by_duration(songs)\n→ [shortest song first, ..., longest last]",
     hint: "sorted(playlist, key=lambda s: s['duration'])",
     starter: "def sort_by_duration(playlist):\n    # sort songs from shortest to longest\n    # hint: sorted() needs a key= argument here\n    pass",
+    successFeedback: "key=lambda is the standard pattern for sorting complex objects. You can sort by multiple fields too: key=lambda s: (s['artist'], s['duration'])",
     check: (code) => {
       if (!/def\s+sort_by_duration\s*\(/.test(code))
         return { pass: false, feedback: 'Define a function called sort_by_duration(playlist).' };
@@ -196,7 +206,7 @@ const CODING_CHALLENGES: CodingChallenge[] = [
         return { pass: false, feedback: "Use sorted(playlist, key=...) — don't write a manual sort." };
       if (!/key\s*=/.test(code))
         return { pass: false, feedback: "sorted() needs a key= argument to know what to sort by: key=lambda s: s['duration']" };
-      if (!/lambda/.test(code) && !/'duration'/.test(code) && !/"duration"/.test(code))
+      if (!/lambda/.test(code) || (!/'duration'/.test(code) && !/"duration"/.test(code)))
         return { pass: false, feedback: "The lambda should access the duration field: lambda s: s['duration']" };
       return { pass: true, feedback: "key=lambda is the standard pattern for sorting complex objects. You can sort by multiple fields too: key=lambda s: (s['artist'], s['duration'])" };
     },
@@ -209,6 +219,7 @@ const CODING_CHALLENGES: CodingChallenge[] = [
     example: 'format_duration(637)  →  "10:37"\nformat_duration(65)   →  "1:05"',
     hint: 'minutes = seconds // 60  |  secs = seconds % 60  |  f"{minutes}:{secs:02d}"',
     starter: 'def format_duration(seconds):\n    # convert to minutes and remaining seconds\n    # return as "M:SS" string\n    pass',
+    successFeedback: ':02d means "integer, minimum 2 digits, zero-padded". The same format spec works for hours, IDs, anything needing consistent width.',
     check: (code) => {
       if (!/def\s+format_duration\s*\(/.test(code))
         return { pass: false, feedback: 'Define a function called format_duration(seconds).' };
@@ -229,6 +240,7 @@ const CODING_CHALLENGES: CodingChallenge[] = [
     example: 'build_playlist(songs, 400)\n→ songs that fit within 400 seconds total',
     hint: "Keep a running total. Check: if total + song['duration'] <= max_duration before adding.",
     starter: "def build_playlist(songs, max_duration):\n    playlist = []\n    total = 0\n    for song in songs:\n        # only add the song if it fits\n        pass\n    return playlist",
+    successFeedback: "Accumulate-until-limit is everywhere in real code — shopping carts, pagination, batch jobs. The key is checking BEFORE adding, not after.",
     check: (code) => {
       if (!/def\s+build_playlist\s*\(/.test(code))
         return { pass: false, feedback: 'Define build_playlist(songs, max_duration).' };
@@ -236,6 +248,8 @@ const CODING_CHALLENGES: CodingChallenge[] = [
         return { pass: false, feedback: "Add a condition before appending: if total + song['duration'] <= max_duration" };
       if (!(/\.append\(/.test(code)))
         return { pass: false, feedback: 'Add matching songs to the playlist: playlist.append(song)' };
+      if (!(/\['duration'\]/.test(code) || /\["duration"\]/.test(code)))
+        return { pass: false, feedback: "Check the song's duration field: total + song['duration']" };
       if (!(/\+=/.test(code) || /total\s*=\s*total/.test(code)))
         return { pass: false, feedback: "Update the running total after each addition: total += song['duration']" };
       return { pass: true, feedback: "Accumulate-until-limit is everywhere in real code — shopping carts, pagination, batch jobs. The key is checking BEFORE adding, not after." };
@@ -253,43 +267,31 @@ const CHALLENGE_CATEGORY_CFG: Record<ChallengeCategory, { label: string; color: 
 
 // ─── Quiz panel ───────────────────────────────────────────────────────────────
 
-function QuizPanel({ currentCode, onLoadStarter, onChallengeChange }: {
+function QuizPanel({ currentCode, onLoadStarter, onChallengeChange, onPassFeedback, onPrefetch }: {
   currentCode: string;
   onLoadStarter: (code: string) => void;
   onChallengeChange?: (title: string, description: string) => void;
+  onPassFeedback?: (text: string) => void;
+  onPrefetch?: (text: string) => void;
 }) {
-  const [open,      setOpen]      = useState(false);
   const [current,   setCurrent]   = useState(0);
-  const [direction, setDirection] = useState(1);   // +1 = forward, -1 = backward
+  const [direction, setDirection] = useState(1);
   const [result,    setResult]    = useState<{ pass: boolean; feedback: string } | null>(null);
   const [done,      setDone]      = useState(false);
   const [passed,    setPassed]    = useState(0);
 
-  // Measure pill width once on mount, then auto-open
-  const pillRef = useRef<HTMLDivElement>(null);
-  const [pillW, setPillW] = useState(108);
+  // Load starter code on mount
   useEffect(() => {
-    const measure = () => { if (pillRef.current) setPillW(pillRef.current.offsetWidth); };
-    measure();
-    document.fonts?.ready.then(measure);
-    // Auto-open after the collapsed pill has been measured
-    const t = setTimeout(() => setOpen(true), 60);
-    return () => clearTimeout(t);
+    onLoadStarter(CODING_CHALLENGES[0].starter);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Load starter code whenever open state turns on (first challenge)
+  // Notify parent when challenge changes and pre-warm TTS for the success audio
   useEffect(() => {
-    if (open) onLoadStarter(CODING_CHALLENGES[current].starter);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
-
-  // Notify parent whenever the active challenge changes so AI gets context
-  useEffect(() => {
-    if (open) {
-      const ch = CODING_CHALLENGES[current];
-      onChallengeChange?.(ch.title, ch.description);
-    }
-  }, [current, open, onChallengeChange]);
+    const ch = CODING_CHALLENGES[current];
+    onChallengeChange?.(ch.title, ch.description);
+    onPrefetch?.(ch.successFeedback);
+  }, [current, onChallengeChange, onPrefetch]);
 
   const challenge = CODING_CHALLENGES[current];
   const cfg       = CHALLENGE_CATEGORY_CFG[challenge.category];
@@ -297,15 +299,16 @@ function QuizPanel({ currentCode, onLoadStarter, onChallengeChange }: {
   function checkCode() {
     const res = challenge.check(currentCode);
     setResult(res);
-    if (res.pass) setPassed(p => p + 1);
+    if (res.pass) {
+      setPassed(p => p + 1);
+      onPassFeedback?.(res.feedback);
+    }
   }
 
   function prev() {
     if (current > 0) {
       const newIdx = current - 1;
-      setDirection(-1);
-      setCurrent(newIdx);
-      setResult(null);
+      setDirection(-1); setCurrent(newIdx); setResult(null);
       onLoadStarter(CODING_CHALLENGES[newIdx].starter);
     }
   }
@@ -313,9 +316,7 @@ function QuizPanel({ currentCode, onLoadStarter, onChallengeChange }: {
   function next() {
     if (current < CODING_CHALLENGES.length - 1) {
       const newIdx = current + 1;
-      setDirection(1);
-      setCurrent(newIdx);
-      setResult(null);
+      setDirection(1); setCurrent(newIdx); setResult(null);
       onLoadStarter(CODING_CHALLENGES[newIdx].starter);
     } else {
       setDone(true);
@@ -328,189 +329,142 @@ function QuizPanel({ currentCode, onLoadStarter, onChallengeChange }: {
   }
 
   return (
-    <div className="absolute z-20" style={{ top: 8, right: 8 }}>
-      <motion.div
-        animate={{ width: open ? 340 : pillW }}
-        transition={{ type: 'spring', stiffness: 320, damping: 26, mass: 0.9 }}
-        style={{
-          overflow: 'hidden',
-          borderRadius: 6,
-          border: '1px solid rgba(167,139,250,0.4)',
-          background: open ? 'rgba(12,16,26,0.97)' : 'transparent',
-          backdropFilter: open ? 'blur(12px)' : 'none',
-          boxShadow: open ? '0 8px 32px rgba(0,0,0,0.5)' : 'none',
-          cursor: open ? 'default' : 'pointer',
-          transformOrigin: 'right center',
-        }}
-        onClick={() => !open && setOpen(true)}
-      >
-        {/* ── Pill header ── */}
-        <div ref={pillRef} className="flex items-center justify-between px-2.5 py-1"
-          style={{ whiteSpace: 'nowrap', width: open ? '100%' : 'fit-content' }}>
-          <div className="flex items-center gap-1.5">
-            <BookOpen className="w-3 h-3 text-[#a78bfa] flex-shrink-0" />
-            <span className="text-[10px] font-['DM_Sans'] font-semibold text-[#a78bfa] tracking-wider">CODE QUIZ</span>
-            {open && (
-              <span className="px-1 py-0.5 rounded text-[8px] font-['DM_Sans'] font-bold"
-                style={{ background: 'rgba(167,139,250,0.15)', color: '#a78bfa' }}>
-                {current + 1}/{CODING_CHALLENGES.length}
-              </span>
-            )}
-            {open && passed > 0 && (
-              <span className="px-1 py-0.5 rounded text-[8px] font-['DM_Sans'] font-bold"
-                style={{ background: 'rgba(34,211,238,0.12)', color: '#22d3ee' }}>
-                ✓{passed}
-              </span>
-            )}
-          </div>
-          {open && (
-            <button onClick={e => { e.stopPropagation(); setOpen(false); }}
-              className="ml-2 flex-shrink-0 text-[#4a5a7a] hover:text-[#8b9bb4] transition-colors"
-              style={{ lineHeight: 1, fontSize: 14 }}>×</button>
+    <div
+      className="flex-shrink-0 flex flex-col"
+      style={{ borderBottom: '1px solid rgba(167,139,250,0.25)', background: 'rgba(10,12,22,0.85)' }}
+    >
+      {/* ── Header row ── */}
+      <div className="flex items-center justify-between px-4 py-2" style={{ borderBottom: '1px solid rgba(167,139,250,0.15)' }}>
+        <div className="flex items-center gap-2">
+          <BookOpen className="w-3 h-3 text-[#a78bfa]" />
+          <span className="text-[10px] font-['DM_Sans'] font-semibold text-[#a78bfa] tracking-wider">CODE QUIZ</span>
+          <span className="px-1.5 py-0.5 rounded text-[8px] font-['DM_Sans'] font-bold"
+            style={{ background: 'rgba(167,139,250,0.15)', color: '#a78bfa' }}>
+            {current + 1} / {CODING_CHALLENGES.length}
+          </span>
+          {passed > 0 && (
+            <span className="px-1.5 py-0.5 rounded text-[8px] font-['DM_Sans'] font-bold"
+              style={{ background: 'rgba(34,211,238,0.12)', color: '#22d3ee' }}>
+              ✓ {passed} passed
+            </span>
           )}
         </div>
+        {/* Navigation in header */}
+        <div className="flex items-center gap-1">
+          <button onClick={prev} disabled={current === 0 || done}
+            className="flex items-center gap-0.5 px-2 py-1 rounded text-[9px] font-['DM_Sans'] font-semibold transition-opacity hover:opacity-80 disabled:opacity-25 disabled:cursor-not-allowed"
+            style={{ background: 'rgba(167,139,250,0.1)', color: '#a78bfa', border: '1px solid rgba(167,139,250,0.25)' }}>
+            <ChevronLeft className="w-3 h-3" /> Prev
+          </button>
+          <button onClick={next} disabled={done || (current === CODING_CHALLENGES.length - 1 && !result?.pass)}
+            className="flex items-center gap-0.5 px-2 py-1 rounded text-[9px] font-['DM_Sans'] font-semibold transition-opacity hover:opacity-80 disabled:opacity-25 disabled:cursor-not-allowed"
+            style={{ background: 'rgba(167,139,250,0.1)', color: '#a78bfa', border: '1px solid rgba(167,139,250,0.25)' }}>
+            Next <ChevronRight className="w-3 h-3" />
+          </button>
+        </div>
+      </div>
 
-        {/* ── Body ── */}
-        <AnimatePresence>
-          {open && (
-            <motion.div key="body"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1, transition: { duration: 0.16, delay: 0.1 } }}
-              exit={{ opacity: 0, transition: { duration: 0 } }}
-              className="px-2.5 pb-2.5"
-              style={{ borderTop: '1px solid rgba(167,139,250,0.2)' }}
-            >
-              {done ? (
-                /* ── Completion screen ── */
-                <div className="flex flex-col items-center gap-2 py-3">
-                  <div className="text-2xl">{passed >= 4 ? '🏆' : passed >= 2 ? '🎯' : '📚'}</div>
-                  <p className="text-[#e2e8f0] text-[12px] font-['DM_Sans'] font-semibold">
-                    {passed} / {CODING_CHALLENGES.length} passed
-                  </p>
-                  <p className="text-[#8b9bb4] text-[11px] font-['DM_Sans'] text-center leading-relaxed">
-                    {passed >= 4 ? 'Excellent Python skills!' : passed >= 2 ? 'Good work — keep practicing.' : 'Review the hints and try again!'}
-                  </p>
-                  <button onClick={reset}
-                    className="flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-['DM_Sans'] font-semibold hover:opacity-80 transition-opacity"
-                    style={{ background: 'rgba(167,139,250,0.15)', color: '#a78bfa', border: '1px solid rgba(167,139,250,0.3)' }}>
-                    <RotateCcw className="w-2.5 h-2.5" /> Start Over
-                  </button>
-                </div>
-              ) : (
-                /* ── Challenge screen ── */
-                <>
-                  {/* Sliding content area */}
-                  <div style={{ overflow: 'hidden' }}>
-                    <AnimatePresence mode="wait" custom={direction}>
-                      <motion.div
-                        key={current}
-                        custom={direction}
-                        variants={{
-                          enter:  (d: number) => ({ x: d * 28, opacity: 0 }),
-                          center: { x: 0, opacity: 1 },
-                          exit:   (d: number) => ({ x: d * -28, opacity: 0 }),
-                        }}
-                        initial="enter"
-                        animate="center"
-                        exit="exit"
-                        transition={{ duration: 0.22, ease: [0.25, 0.46, 0.45, 0.94] }}
-                      >
-                        {/* Category badge + title */}
-                        <div className="mt-2 mb-2 flex items-center gap-1.5 flex-wrap">
-                          <span className="px-1.5 py-0.5 rounded text-[8px] font-['DM_Sans'] font-bold tracking-wider"
-                            style={{ background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.color}44` }}>
-                            {cfg.label}
-                          </span>
-                          <span className="text-[10px] font-['DM_Sans'] font-semibold" style={{ color: '#e2e8f0' }}>
-                            {challenge.title}
-                          </span>
-                        </div>
-
-                        {/* Description */}
-                        <p className="text-[11px] font-['DM_Sans'] leading-relaxed mb-2" style={{ color: '#c8d3e8' }}>
-                          {challenge.description}
-                        </p>
-
-                        {/* Example output */}
-                        {challenge.example && (
-                          <pre className="text-[10px] font-['Space_Mono'] rounded px-2.5 py-2 mb-2.5"
-                            style={{ background: 'rgba(255,255,255,0.04)', color: '#89ddff', border: '1px solid rgba(255,255,255,0.07)', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
-                            {challenge.example}
-                          </pre>
-                        )}
-
-                        {/* Check button */}
-                        {!result && (
-                          <button onClick={checkCode}
-                            className="w-full py-2 rounded text-[11px] font-['DM_Sans'] font-semibold hover:opacity-85 transition-opacity"
-                            style={{ background: 'rgba(167,139,250,0.18)', color: '#a78bfa', border: '1px solid rgba(167,139,250,0.35)' }}>
-                            ▶ Check My Code
-                          </button>
-                        )}
-
-                        {/* Result feedback */}
-                        <AnimatePresence>
-                          {result && (
-                            <motion.div key="result"
-                              initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                              transition={{ duration: 0.18 }}>
-                              <div className="flex items-start gap-1.5 px-2 py-1.5 rounded mb-1.5"
-                                style={{
-                                  background: result.pass ? 'rgba(34,211,238,0.07)' : 'rgba(248,113,113,0.07)',
-                                  border: `1px solid ${result.pass ? 'rgba(34,211,238,0.3)' : 'rgba(248,113,113,0.3)'}`,
-                                }}>
-                                {result.pass
-                                  ? <CheckCircle2 className="w-3 h-3 flex-shrink-0 mt-px" style={{ color: '#22d3ee' }} />
-                                  : <XCircle      className="w-3 h-3 flex-shrink-0 mt-px" style={{ color: '#f87171' }} />}
-                                <p className="text-[9px] font-['DM_Sans'] leading-relaxed"
-                                  style={{ color: result.pass ? '#22d3ee' : '#f87171' }}>
-                                  {result.feedback}
-                                </p>
-                              </div>
-                              {!result.pass && (
-                                <button onClick={() => setResult(null)}
-                                  className="w-full py-1 rounded text-[9px] font-['DM_Sans'] font-semibold hover:opacity-80 transition-opacity mb-1.5"
-                                  style={{ background: 'rgba(248,113,113,0.1)', color: '#f87171', border: '1px solid rgba(248,113,113,0.25)' }}>
-                                  Try Again
-                                </button>
-                              )}
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </motion.div>
-                    </AnimatePresence>
+      {/* ── Body ── */}
+      <div className="px-4 py-3 overflow-hidden">
+        {done ? (
+          <div className="flex items-center gap-4">
+            <span className="text-2xl">{passed >= 4 ? '🏆' : passed >= 2 ? '🎯' : '📚'}</span>
+            <div>
+              <p className="text-[#e2e8f0] text-[12px] font-['DM_Sans'] font-semibold">
+                {passed} / {CODING_CHALLENGES.length} passed —{' '}
+                {passed >= 4 ? 'Excellent Python skills!' : passed >= 2 ? 'Good work — keep practicing.' : 'Review the hints and try again!'}
+              </p>
+            </div>
+            <button onClick={reset}
+              className="ml-auto flex items-center gap-1 px-2.5 py-1 rounded text-[10px] font-['DM_Sans'] font-semibold hover:opacity-80 transition-opacity flex-shrink-0"
+              style={{ background: 'rgba(167,139,250,0.15)', color: '#a78bfa', border: '1px solid rgba(167,139,250,0.3)' }}>
+              <RotateCcw className="w-2.5 h-2.5" /> Start Over
+            </button>
+          </div>
+        ) : (
+          <div style={{ overflow: 'hidden' }}>
+            <AnimatePresence mode="wait" custom={direction}>
+              <motion.div
+                key={current}
+                custom={direction}
+                variants={{
+                  enter:  (d: number) => ({ x: d * 20, opacity: 0 }),
+                  center: { x: 0, opacity: 1 },
+                  exit:   (d: number) => ({ x: d * -20, opacity: 0 }),
+                }}
+                initial="enter" animate="center" exit="exit"
+                transition={{ duration: 0.2, ease: [0.25, 0.46, 0.45, 0.94] }}
+              >
+                {/* Single-column: title → description → example → check */}
+                <div>
+                  <div className="flex items-center gap-1.5 mb-1.5">
+                    <span className="px-1.5 py-0.5 rounded text-[8px] font-['DM_Sans'] font-bold tracking-wider flex-shrink-0"
+                      style={{ background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.color}44` }}>
+                      {cfg.label}
+                    </span>
+                    <span className="text-[11px] font-['DM_Sans'] font-semibold" style={{ color: '#e2e8f0' }}>
+                      {challenge.title}
+                    </span>
                   </div>
 
-                  {/* ── Prev / Next navigation — static, outside slide area ── */}
-                  <div className="flex items-center gap-1.5 mt-2 pt-2" style={{ borderTop: '1px solid rgba(167,139,250,0.15)' }}>
-                    <button
-                      onClick={prev}
-                      disabled={current === 0}
-                      className="flex items-center gap-0.5 px-2 py-1 rounded text-[9px] font-['DM_Sans'] font-semibold transition-opacity hover:opacity-80 disabled:opacity-25 disabled:cursor-not-allowed"
-                      style={{ background: 'rgba(167,139,250,0.1)', color: '#a78bfa', border: '1px solid rgba(167,139,250,0.25)' }}
-                    >
-                      <ChevronLeft className="w-3 h-3" /> Prev
-                    </button>
-                    <div className="flex-1 flex justify-center">
-                      <span className="text-[9px] font-['DM_Sans']" style={{ color: '#4a5a7a' }}>
-                        {current + 1} / {CODING_CHALLENGES.length}
-                      </span>
+                  <div className="flex gap-4 items-start">
+                    {/* Description + example */}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[11px] font-['DM_Sans'] leading-relaxed" style={{ color: '#c8d3e8' }}>
+                        {challenge.description}
+                      </p>
+                      {challenge.example && (
+                        <pre className="text-[10px] font-['Space_Mono'] rounded px-2 py-1.5 mt-2"
+                          style={{ background: 'rgba(255,255,255,0.04)', color: '#89ddff', border: '1px solid rgba(255,255,255,0.07)', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
+                          {challenge.example}
+                        </pre>
+                      )}
                     </div>
-                    <button
-                      onClick={next}
-                      disabled={current === CODING_CHALLENGES.length - 1 && !result?.pass}
-                      className="flex items-center gap-0.5 px-2 py-1 rounded text-[9px] font-['DM_Sans'] font-semibold transition-opacity hover:opacity-80 disabled:opacity-25 disabled:cursor-not-allowed"
-                      style={{ background: 'rgba(167,139,250,0.1)', color: '#a78bfa', border: '1px solid rgba(167,139,250,0.25)' }}
-                    >
-                      Next <ChevronRight className="w-3 h-3" />
-                    </button>
+
+                    {/* Check / result — sits beside the example, not floating away */}
+                    <div className="flex-shrink-0 flex flex-col gap-1.5 justify-start" style={{ width: 130 }}>
+                      {!result ? (
+                        <button onClick={checkCode}
+                          className="w-full py-2 rounded text-[11px] font-['DM_Sans'] font-semibold hover:opacity-85 transition-opacity"
+                          style={{ background: 'rgba(167,139,250,0.18)', color: '#a78bfa', border: '1px solid rgba(167,139,250,0.35)' }}>
+                          ▶ Check My Code
+                        </button>
+                      ) : (
+                        <AnimatePresence>
+                          <motion.div key="result"
+                            initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.18 }}>
+                            <div className="flex items-start gap-1.5 px-2 py-1.5 rounded mb-1.5"
+                              style={{
+                                background: result.pass ? 'rgba(34,211,238,0.07)' : 'rgba(248,113,113,0.07)',
+                                border: `1px solid ${result.pass ? 'rgba(34,211,238,0.3)' : 'rgba(248,113,113,0.3)'}`,
+                              }}>
+                              {result.pass
+                                ? <CheckCircle2 className="w-3 h-3 flex-shrink-0 mt-px" style={{ color: '#22d3ee' }} />
+                                : <XCircle      className="w-3 h-3 flex-shrink-0 mt-px" style={{ color: '#f87171' }} />}
+                              <p className="text-[9px] font-['DM_Sans'] leading-relaxed"
+                                style={{ color: result.pass ? '#22d3ee' : '#f87171' }}>
+                                {result.pass ? 'Correct — listen for a tip.' : result.feedback}
+                              </p>
+                            </div>
+                            {!result.pass && (
+                              <button onClick={() => setResult(null)}
+                                className="w-full py-1 rounded text-[9px] font-['DM_Sans'] font-semibold hover:opacity-80 transition-opacity"
+                                style={{ background: 'rgba(248,113,113,0.1)', color: '#f87171', border: '1px solid rgba(248,113,113,0.25)' }}>
+                                Try Again
+                              </button>
+                            )}
+                          </motion.div>
+                        </AnimatePresence>
+                      )}
+                    </div>
                   </div>
-                </>
-              )}
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </motion.div>
+                </div>
+              </motion.div>
+            </AnimatePresence>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -519,7 +473,7 @@ function QuizPanel({ currentCode, onLoadStarter, onChallengeChange }: {
 
 type TypingPhase = 'typing' | 'line_done' | 'all_done';
 
-export function CodeEditor({ lines, isTyping, onLineComplete, highlightedLine, editable, onCodeChange, onChallengeChange }: CodeEditorProps) {
+export function CodeEditor({ lines, isTyping, onLineComplete, highlightedLine, editable, onCodeChange, onChallengeChange, onPassFeedback, onPrefetchFeedback }: CodeEditorProps) {
   // ── Typing engine state ──────────────────────────────────────────────────────
   const [lineIdx,  setLineIdx]  = useState(0);
   const [charIdx,  setCharIdx]  = useState(0);
@@ -669,12 +623,12 @@ export function CodeEditor({ lines, isTyping, onLineComplete, highlightedLine, e
           </div>
         </div>
 
-        {/* Quiz floating panel */}
-        <div className="relative flex-1 overflow-hidden" style={{ minHeight: 0 }}>
-          <QuizPanel currentCode={editableCode} onLoadStarter={setEditableCode} onChallengeChange={onChallengeChange} />
+        {/* Quiz panel sits above the editor, not over it */}
+        <QuizPanel currentCode={editableCode} onLoadStarter={setEditableCode} onChallengeChange={onChallengeChange} onPassFeedback={onPassFeedback} onPrefetch={onPrefetchFeedback} />
 
-          {/* Editable area — padded top so quiz doesn't overlap first lines */}
-          <div className="absolute inset-0 overflow-auto" style={{ paddingTop: 0 }}>
+        {/* Editable area fills remaining space */}
+        <div className="flex-1 overflow-hidden" style={{ minHeight: 0 }}>
+          <div className="h-full overflow-auto">
             <div className="flex" style={{ paddingTop: 16, paddingBottom: 80 }}>
               {/* Line numbers */}
               <div
