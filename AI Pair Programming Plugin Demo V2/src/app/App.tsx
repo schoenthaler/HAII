@@ -4,7 +4,7 @@ import { CodeEditor, CodeLine } from './components/CodeEditor';
 import { AITeachingPanel } from './components/AITeachingPanel';
 import { WelcomePage } from './components/WelcomePage';
 import { useAIChat } from './components/useAIChat';
-import { useGoogleTTS } from './components/useGoogleTTS';
+import { useSpeechSynthesis } from './components/useSpeechSynthesis';
 import { Code2, Sparkles, Layers } from 'lucide-react';
 
 interface Message {
@@ -106,10 +106,10 @@ export default function App() {
   const [isTyping, setIsTyping]         = useState(true);
   const [isVoiceActive, setIsVoiceActive] = useState(false);
   const [highlightedLine, setHighlightedLine] = useState<number | null>(null);
-  const [showSkeleton, setShowSkeleton] = useState(false);
+  const [showSkeleton, setShowSkeleton] = useState(true);
 
   const { sendMessage: sendToAI, resetHistory } = useAIChat();
-  const { isSpeaking: ttsIsSpeaking, isMuted, speak, stop: stopSpeaking, toggleMute, prefetch } = useGoogleTTS();
+  const { isSpeaking: ttsIsSpeaking, isMuted, speak, stop: stopSpeaking, toggleMute } = useSpeechSynthesis();
 
   // Tracks which codeLines index has been reached so we can give the AI code context
   const currentLineIdxRef = useRef(-1);
@@ -332,13 +332,13 @@ export default function App() {
                   whileTap={{ scale: 0.96 }}
                   className="px-3 py-2 rounded-full flex items-center gap-2 transition-all"
                   style={{
-                    background: showSkeleton ? 'rgba(255,169,77,0.15)' : 'rgba(255,255,255,0.05)',
-                    border: `1px solid ${showSkeleton ? 'rgba(255,169,77,0.5)' : 'rgba(255,255,255,0.12)'}`,
+                    background: !showSkeleton ? 'rgba(255,169,77,0.15)' : 'rgba(255,255,255,0.05)',
+                    border: `1px solid ${!showSkeleton ? 'rgba(255,169,77,0.5)' : 'rgba(255,255,255,0.12)'}`,
                   }}
                 >
-                  <Layers className="w-3.5 h-3.5" style={{ color: showSkeleton ? '#ffa94d' : '#8b9bb4' }} />
-                  <span className="text-xs font-['DM_Sans']" style={{ color: showSkeleton ? '#ffa94d' : '#8b9bb4' }}>
-                    {showSkeleton ? 'Skeleton ON' : 'Skeleton'}
+                  <Layers className="w-3.5 h-3.5" style={{ color: !showSkeleton ? '#ffa94d' : '#8b9bb4' }} />
+                  <span className="text-xs font-['DM_Sans']" style={{ color: !showSkeleton ? '#ffa94d' : '#8b9bb4' }}>
+                    {!showSkeleton ? 'Skeleton ON' : 'Skeleton'}
                   </span>
                 </motion.button>
 
@@ -380,7 +380,7 @@ export default function App() {
                   onCodeChange={(code) => { skeletonCodeRef.current = code; }}
                   onChallengeChange={(title, description) => { skeletonChallengeRef.current = { title, description }; }}
                   onPassFeedback={handlePassFeedback}
-                  onPrefetchFeedback={prefetch}
+                  onPrefetchFeedback={undefined}
                 />
               </div>
             </motion.div>

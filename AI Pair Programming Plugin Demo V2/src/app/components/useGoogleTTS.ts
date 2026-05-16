@@ -87,7 +87,12 @@ async function fetchTTSBlob(rawText: string, signal: AbortSignal, apiKey: string
     }
   );
 
-  if (signal.aborted || !res.ok) return null;
+  if (signal.aborted) return null;
+  if (!res.ok) {
+    const errBody = await res.text().catch(() => '');
+    console.error(`[GoogleTTS] API error ${res.status}`, errBody);
+    return null;
+  }
 
   const json = await res.json();
   const b64 = json?.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
@@ -150,7 +155,7 @@ export function useGoogleTTS() {
       const audio = new Audio(url);
       audio.playbackRate = 1.15;
       audioRef.current = audio;
-      audio.onended = () => { URL.revokeObjectURL(url); urlRef.current = null; setIsSpeaking(false); };
+      audio.onended = () => { URL.revokeObjectURL(url); urlRef.current = null; audioRef.current = null; setIsSpeaking(false); };
       audio.onerror = () => setIsSpeaking(false);
       await audio.play();
     } catch (err: any) {

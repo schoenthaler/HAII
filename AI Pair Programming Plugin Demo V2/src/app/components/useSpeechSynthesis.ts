@@ -24,6 +24,9 @@ function prepareForSpeech(text: string): string {
   return text
     // Emoji (common ranges)
     .replace(/[\u{1F300}-\u{1FAD6}\u{2600}-\u{27BF}\u{FE00}-\u{FEFF}]/gu, '')
+    // Em dash and ellipsis → natural pause
+    .replace(/\s*—\s*/g, ', ')
+    .replace(/\.{2,}/g, '.')
     // Markdown bold / italic
     .replace(/\*{1,3}([^*\n]+)\*{1,3}/g, '$1')
     // Inline code — expand operators then strip backticks
@@ -53,6 +56,8 @@ function toChunks(text: string): string[] {
 
 function getBestVoice(): SpeechSynthesisVoice | null {
   const voices = window.speechSynthesis.getVoices();
+  const preferred = voices.find(v => v.name === 'Google Australian English 3 (Natural)');
+  if (preferred) return preferred;
   const enUS = voices.filter(v => v.lang === 'en-US' || v.lang === 'en_US');
   const enAny = voices.filter(v => v.lang.startsWith('en'));
   return (
@@ -92,9 +97,9 @@ export function useSpeechSynthesis() {
     const utterance = new SpeechSynthesisUtterance(chunks[index]);
     const voice = getBestVoice();
     if (voice) utterance.voice = voice;
-    utterance.rate = 1.25;
+    utterance.rate = 1.1;
     utterance.pitch = 1.0;
-    utterance.onend = () => speakChain(chunks, index + 1);
+    utterance.onend = () => setTimeout(() => speakChain(chunks, index + 1), 80);
     utterance.onerror = (e) => {
       // 'canceled'/'interrupted' means we called cancel() — not a real error
       if ((e as SpeechSynthesisErrorEvent).error !== 'canceled' &&
