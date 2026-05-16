@@ -56,13 +56,12 @@ function toChunks(text: string): string[] {
 
 function getBestVoice(): SpeechSynthesisVoice | null {
   const voices = window.speechSynthesis.getVoices();
-  const preferred = voices.find(v => v.name === 'Google Australian English 3 (Natural)');
-  if (preferred) return preferred;
   const enUS = voices.filter(v => v.lang === 'en-US' || v.lang === 'en_US');
   const enAny = voices.filter(v => v.lang.startsWith('en'));
   return (
-    // Chrome's built-in neural voice — best option when available
+    voices.find(v => v.name === 'Google Australian English 3 (Natural)') ??
     voices.find(v => v.name === 'Google US English') ??
+    voices.find(v => v.name === 'Karen') ??
     voices.find(v => v.name.includes('Google') && v.lang.startsWith('en')) ??
     // macOS Premium (neural) and Enhanced voices
     enUS.find(v => v.name.includes('Premium')) ??
