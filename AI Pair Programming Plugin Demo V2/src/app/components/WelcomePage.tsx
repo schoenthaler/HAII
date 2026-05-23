@@ -364,19 +364,19 @@ export function WelcomePage({ onEnter }: WelcomePageProps) {
               <div className="px-6 py-5 space-y-4 max-h-[70vh] overflow-y-auto">
                 <p className="text-[13px] font-['DM_Sans'] leading-relaxed" style={{ color: '#c8d3e8' }}>
                   I agree to participate in this research project, where I'll use an AI coding tool to
-                  complete short Python tasks and answer questions about my experience (subject to the
-                  terms of use that apply to{' '}
+                  complete short Python tasks and answer questions about my experience. AI responses are
+                  processed via{' '}
                   <a
-                    href="https://openai.com/policies/terms-of-use"
+                    href="https://groq.com/terms-of-use/"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="underline underline-offset-2 hover:opacity-80 transition-opacity"
                     style={{ color: '#22d3ee' }}
                     onClick={e => e.stopPropagation()}
                   >
-                    ChatGPT
+                    Groq
                   </a>
-                  ).
+                  {' '}using the Llama 3 language model.
                 </p>
 
                 <p className="text-[13px] font-['DM_Sans'] leading-relaxed" style={{ color: '#c8d3e8' }}>
